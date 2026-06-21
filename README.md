@@ -69,6 +69,7 @@ The multiplier lives in **two** places:
 - `scripts/backfill_gcs.py` — process every zip already in the bucket and rebuild `summary.json`.
 - `web/index.html` — the page.
 - `firebase.json`, `.firebaserc` — Firebase Hosting config (`firebase deploy --only hosting`).
+- `.gitignore` — excludes machine-local/generated files (`web/derived/` sample output, `.firebase/` cache, `__pycache__/`, `.DS_Store`, and any `*-key.json`/`.env` secrets).
 
 ## Redeploy
 
