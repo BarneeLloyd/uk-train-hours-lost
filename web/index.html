@@ -1,0 +1,829 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Hours lost to UK train delays</title>
+  <meta name="description" content="The total human-hours lost to train delays across Britain over the last 12 months, from Network Rail's Historic Delay Attribution data." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #ffffff;
+      --ink: #16181d;
+      --muted: #6b7280;
+      --faint: #9aa1ac;
+      --line: rgba(22, 24, 29, 0.10);
+      --accent: #1f2937;
+      --delay: #b45309;
+      --cancel: #9f1239;
+      --turquoise: #0d9488;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0d0f12;
+        --ink: #f3f4f6;
+        --muted: #9aa1ac;
+        --faint: #6b7280;
+        --line: rgba(243, 244, 246, 0.12);
+        --accent: #e5e7eb;
+        --delay: #fbbf24;
+        --cancel: #fb7185;
+        --turquoise: #5eead4;
+      }
+    }
+    * { box-sizing: border-box; }
+    html, body { height: auto; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      text-align: center;
+    }
+
+    /* ---- First screen: just the headline ---- */
+    .hero-screen {
+      position: relative;
+      min-height: 100svh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 18vh 24px 0;
+    }
+    .headline { width: 100%; max-width: 880px; }
+
+    .eyebrow {
+      font-size: clamp(12px, 1.6vw, 14px);
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--faint);
+      margin: 0 0 2.2rem;
+      font-weight: 500;
+    }
+
+    .hero { position: relative; display: inline-block; cursor: pointer; border: 0; background: none; padding: 0; color: inherit; font: inherit; }
+    .hero:focus-visible { outline: 2px solid var(--accent); outline-offset: 8px; border-radius: 8px; }
+    .number {
+      font-size: clamp(3rem, 14vw, 9rem);
+      font-weight: 600;
+      line-height: 0.95;
+      letter-spacing: -0.02em;
+      font-variant-numeric: tabular-nums;
+      margin: 0;
+      transition: color 0.2s ease;
+    }
+    /* Hover/focus tints the figure turquoise to signal it can be expanded. */
+    .hero:hover .number,
+    .hero:focus-visible .number { color: var(--turquoise); }
+
+    .caption {
+      font-size: clamp(15px, 2.4vw, 21px);
+      color: var(--muted);
+      margin: 1.4rem auto 0;
+      max-width: 34ch;
+      line-height: 1.5;
+    }
+    .window { color: var(--turquoise); font-weight: 500; }
+    .years {
+      font-size: clamp(12px, 1.8vw, 14px);
+      color: var(--faint);
+      margin: 0.7rem 0 0;
+    }
+
+    /* "human-hours" glossary term with hover/focus tooltip */
+    .term { position: relative; cursor: help; outline: none; }
+    .term-label { border-bottom: 1px dotted currentColor; }
+    .term:focus-visible .term-label { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 3px; }
+    .term-tip {
+      position: absolute; left: 50%; bottom: calc(100% + 12px);
+      transform: translateX(-50%) translateY(4px);
+      width: max-content; max-width: min(300px, 78vw);
+      background: var(--ink); color: var(--bg);
+      font-size: 13px; font-weight: 400; line-height: 1.5; text-align: left;
+      padding: 10px 13px; border-radius: 8px; z-index: 20;
+      opacity: 0; pointer-events: none;
+      box-shadow: 0 8px 26px rgba(0, 0, 0, 0.22);
+      transition: opacity 0.18s ease, transform 0.18s ease;
+    }
+    .term-tip::after {
+      content: ''; position: absolute; top: 100%; left: 50%;
+      transform: translateX(-50%); border: 6px solid transparent; border-top-color: var(--ink);
+    }
+    .term:hover .term-tip,
+    .term:focus-visible .term-tip { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    .tooltip {
+      position: absolute;
+      left: 50%;
+      bottom: calc(100% + 14px);
+      transform: translateX(-50%) translateY(4px);
+      background: var(--ink);
+      color: var(--bg);
+      font-size: 13px;
+      font-weight: 500;
+      padding: 7px 12px;
+      border-radius: 8px;
+      white-space: nowrap;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.18s ease, transform 0.18s ease;
+    }
+    .tooltip::after {
+      content: '';
+      position: absolute;
+      top: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+      border: 6px solid transparent;
+      border-top-color: var(--ink);
+    }
+    .hero:hover .tooltip,
+    .hero:focus-visible .tooltip { opacity: 1; transform: translateX(-50%) translateY(0); }
+    .hero.is-open:hover .tooltip,
+    .hero.is-open:focus-visible .tooltip { opacity: 0; }
+
+    /* Expands beneath the figure; the figure itself stays put. */
+    .details {
+      max-width: 760px;
+      margin: 0 auto;
+      overflow: hidden;
+      max-height: 0;
+      opacity: 0;
+      transition: max-height 0.5s ease, opacity 0.4s ease, margin 0.4s ease;
+    }
+    .details.is-open { max-height: 2400px; opacity: 1; margin-top: 3rem; }
+
+    hr.div { border: 0; border-top: 1px solid var(--line); margin: 2.2rem auto; width: 100%; }
+
+    .split { display: flex; gap: 24px; justify-content: center; flex-wrap: wrap; }
+    .stat { flex: 1 1 220px; max-width: 320px; }
+    .stat .label {
+      font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--faint); margin: 0 0 0.5rem; font-weight: 500;
+    }
+    .stat .value {
+      font-size: clamp(1.8rem, 6vw, 2.8rem); font-weight: 600;
+      font-variant-numeric: tabular-nums; line-height: 1;
+    }
+    .stat.delay .value { color: var(--delay); }
+    .stat.cancel .value { color: var(--cancel); }
+    .stat .unit { font-size: 0.42em; font-weight: 500; color: var(--muted); margin-left: 0.4em; letter-spacing: 0; text-transform: none; }
+
+    .reasons h2 {
+      font-size: 14px; letter-spacing: 0.1em; text-transform: uppercase;
+      color: var(--faint); font-weight: 500; margin: 0 0 1.2rem;
+    }
+    ol.reasons-list { list-style: none; margin: 0; padding: 0; text-align: left; }
+    ol.reasons-list li {
+      position: relative;
+      display: grid; grid-template-columns: 1.6rem 1fr auto;
+      align-items: baseline; gap: 12px;
+      padding: 11px 4px; border-bottom: 1px solid var(--line);
+      cursor: help;
+    }
+    ol.reasons-list li:last-child { border-bottom: 0; }
+    .rank { color: var(--faint); font-size: 14px; font-variant-numeric: tabular-nums; }
+    .rname { color: var(--ink); font-size: clamp(14px, 2vw, 16px); border-bottom: 1px dotted var(--faint); }
+    .rhours { color: var(--muted); font-size: clamp(14px, 2vw, 16px); font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .rtip {
+      position: absolute; left: 0; right: 0; bottom: calc(100% - 2px);
+      background: var(--ink); color: var(--bg);
+      font-size: 12.5px; line-height: 1.45; font-weight: 400; text-align: left;
+      padding: 9px 12px; border-radius: 8px; z-index: 5;
+      opacity: 0; pointer-events: none; transform: translateY(4px);
+      box-shadow: 0 6px 22px rgba(0, 0, 0, 0.18);
+      transition: opacity 0.16s ease, transform 0.16s ease;
+    }
+    ol.reasons-list li:hover .rtip,
+    ol.reasons-list li:focus-within .rtip { opacity: 1; transform: translateY(0); }
+
+    /* Trend chart */
+    .trend h2 {
+      font-size: 14px; letter-spacing: 0.1em; text-transform: uppercase;
+      color: var(--faint); font-weight: 500; margin: 0 0 1.2rem;
+    }
+    .chart { width: 100%; position: relative; }
+    .chart svg { width: 100%; height: auto; display: block; overflow: visible; }
+    .chart-tip {
+      position: absolute; transform: translate(-50%, -100%);
+      background: var(--ink); color: var(--bg);
+      font-size: 12px; font-weight: 500; white-space: nowrap;
+      padding: 6px 9px; border-radius: 6px; pointer-events: none;
+      opacity: 0; transition: opacity 0.12s ease; z-index: 6;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.22);
+    }
+    .chart-tip.show { opacity: 1; }
+    .chart-legend {
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      flex-wrap: wrap; font-size: 12px; color: var(--faint); margin: 0.9rem 0 0;
+    }
+    .chart-legend .lg { display: inline-block; width: 20px; height: 0; vertical-align: middle; margin-left: 6px; }
+    .chart-legend .lg-line { border-top: 2.5px solid var(--turquoise); }
+    .chart-legend .lg-trend { border-top: 1.5px dashed var(--faint); }
+
+    /* ---- Scroll cue at the bottom of the first screen ---- */
+    .scroll-cue {
+      position: absolute; left: 50%; bottom: 3.5vh;
+      transform: translateX(-50%);
+      border: 0; background: none; padding: 8px; cursor: pointer;
+      color: var(--faint); line-height: 0;
+      transition: opacity 0.4s ease, color 0.2s ease;
+      animation: cue-bounce 1.9s ease-in-out infinite;
+    }
+    .scroll-cue svg { width: 26px; height: 26px; display: block; }
+    .scroll-cue:hover { color: var(--muted); }
+    .scroll-cue.hide { opacity: 0; pointer-events: none; }
+    @keyframes cue-bounce {
+      0%, 100% { transform: translate(-50%, 0); }
+      50% { transform: translate(-50%, 7px); }
+    }
+
+    /* ---- Everything below the fold ---- */
+    .below { max-width: 880px; margin: 0 auto; padding: 6vh 24px 8vh; }
+
+    /* Reveal-on-scroll (only when JS is present, so no-JS shows everything). */
+    .js .reveal { opacity: 0; transform: translateY(26px); transition: opacity 0.6s ease, transform 0.6s ease; }
+    .js .reveal.in { opacity: 1; transform: none; }
+
+    /* All-time toggle */
+    .scope { margin-top: 0; }
+    .switch {
+      display: inline-flex; align-items: center; gap: 10px;
+      cursor: pointer; user-select: none;
+      font-size: clamp(13px, 1.8vw, 15px); color: var(--muted);
+    }
+    .switch input { position: absolute; opacity: 0; width: 0; height: 0; }
+    .track {
+      position: relative; width: 42px; height: 24px; flex: none;
+      background: var(--line); border-radius: 999px; transition: background 0.2s ease;
+    }
+    .track::after {
+      content: ''; position: absolute; top: 3px; left: 3px;
+      width: 18px; height: 18px; border-radius: 50%;
+      background: var(--bg); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+      transition: transform 0.2s ease;
+    }
+    .switch input:checked + .track { background: var(--turquoise); }
+    .switch input:checked + .track::after { transform: translateX(18px); }
+    .switch input:focus-visible + .track { outline: 2px solid var(--accent); outline-offset: 3px; }
+    .scope-note {
+      font-size: 12px; color: var(--faint); line-height: 1.5;
+      margin: 0.9rem auto 0; max-width: 46ch;
+    }
+
+    /* Limitations disclosure */
+    .lim-wrap { margin-top: 3.4rem; }
+    .lim-toggle {
+      border: 0; background: none; padding: 0; cursor: pointer;
+      font: inherit; font-size: 12px; color: var(--faint);
+      text-decoration: underline; text-underline-offset: 3px;
+    }
+    .lim-toggle:hover { color: var(--muted); }
+    .limitations {
+      max-width: 620px; margin: 0 auto; overflow: hidden;
+      max-height: 0; opacity: 0; text-align: left;
+      transition: max-height 0.5s ease, opacity 0.4s ease, margin 0.4s ease;
+    }
+    .limitations.is-open { max-height: 1600px; opacity: 1; margin-top: 1.4rem; }
+    .limitations p { font-size: 13px; color: var(--muted); line-height: 1.6; margin: 0 0 0.8rem; }
+    .limitations ul { margin: 0 0 1rem; padding-left: 1.1rem; }
+    .limitations li { font-size: 13px; color: var(--muted); line-height: 1.55; margin: 0 0 0.55rem; }
+    .limitations a { color: var(--turquoise); }
+
+    footer { margin-top: 3.4rem; font-size: 12px; color: var(--faint); line-height: 1.6; }
+    footer a { color: inherit; }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, .details, .tooltip, .reveal, .scroll-cue { transition: none !important; animation: none !important; }
+      .js .reveal { opacity: 1; transform: none; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <section class="hero-screen">
+      <div class="headline">
+        <p class="eyebrow">Britain's railways</p>
+
+        <button class="hero" id="hero" aria-expanded="false" aria-controls="details">
+          <span class="tooltip" id="tooltip">Click for a detailed breakdown</span>
+          <p class="number" id="number" aria-live="polite">—</p>
+        </button>
+
+        <p class="caption"><span class="term" id="hh-term" tabindex="0" role="note"><span class="term-label">human-hours</span><span class="term-tip">Human-hours are the total hours humans have lost - waiting for trains to arrive due to delays, or waiting until the next available train due to a cancellation.</span></span> lost to train delays and cancellations <span class="window" id="window"></span></p>
+        <p class="years" id="years"></p>
+
+        <section class="details" id="details" aria-hidden="true">
+          <hr class="div" />
+          <div class="split">
+            <div class="stat delay">
+              <p class="label">Delay hours</p>
+              <p class="value"><span id="delay-hours">—</span><span class="unit">hrs</span></p>
+            </div>
+            <div class="stat cancel">
+              <p class="label">Cancellation hours</p>
+              <p class="value"><span id="cancel-hours">—</span><span class="unit">hrs</span></p>
+            </div>
+          </div>
+
+          <hr class="div" />
+
+          <div class="reasons">
+            <h2>Top 10 incident reasons</h2>
+            <ol class="reasons-list" id="reasons-list"></ol>
+          </div>
+
+          <hr class="div" />
+
+          <div class="trend">
+            <h2>Hours lost over time</h2>
+            <div id="chart" class="chart" role="img" aria-label="Human-hours lost per railway period over time"></div>
+            <p class="chart-legend">
+              <span class="lg lg-line"></span> hours lost per period
+              <span class="lg lg-trend"></span> trend
+            </p>
+          </div>
+        </section>
+      </div>
+
+      <button class="scroll-cue" id="scroll-cue" type="button" aria-label="Scroll down for more">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <polyline points="6 9 12 15 18 9" />
+        </svg>
+      </button>
+    </section>
+
+    <section class="below" id="below">
+      <div class="scope reveal">
+        <label class="switch">
+          <input type="checkbox" id="alltime-toggle" />
+          <span class="track" aria-hidden="true"></span>
+          <span id="scope-label">Show all hours lost since records began</span>
+        </label>
+        <p class="scope-note" id="scope-note"></p>
+      </div>
+
+      <div class="lim-wrap reveal">
+        <button class="lim-toggle" id="lim-toggle" aria-expanded="false" aria-controls="limitations">limitations&#42;</button>
+        <div class="limitations" id="limitations" aria-hidden="true">
+          <p>This figure is a deliberately simple estimate, meant to convey scale rather than a precise count. The main simplifications:</p>
+          <ul>
+            <li><strong>Flat passengers-per-train assumption.</strong> Every delayed or cancelled train minute is multiplied by the same assumed number of people on board (currently <span id="lim-ppt">100</span>). Real loadings vary enormously - a packed commuter service vs. a near-empty off-peak or freight train - so this over-counts some trains and under-counts others.</li>
+            <li><strong>Freight and empty stock are included.</strong> The data doesn't distinguish passenger from freight or empty-stock movements, yet they're multiplied by the same passenger figure. I made the decision to leave freight-related trains in the dataset because, while it doesn't directly affect passengers, it still impacts downstream time loss for businesses dependant on freight services. Ultimately this translates into real human impact and wasted hours, so to exclude it would misrepresent the impact of train delays and cancellations on the wider ecosystem. However I'm open to improving the methodology used here, perhaps by using a more grounded human-hour impact multiplier for freight, or by other means. Please get in touch if you have an idea!</li>
+            <li><strong>Cancellation minutes are an approximation.</strong> Cancellation time (NON_PFPI minutes) isn't lost passenger time in the same direct way that delay minutes (PFPI) are; combining them is a rough proxy.</li>
+            <li><strong>Only Network Rail attributed delays are counted.</strong> Delays are taken from Network Rail's Historic Delay Attribution dataset; some causes are recorded as uninvestigated or unattributed, and disruption outside this attribution process isn't captured.</li>
+            <li><strong>Knock-on time isn't fully captured.</strong> Missed connections, abandoned journeys and wider disruption to people's days fall outside these figures.</li>
+            <li><strong>The headline covers a rolling ~12 months</strong> (the latest 13 four-week railway periods). The all-time toggle instead sums every railway period on record - currently <span id="lim-first">…</span> to <span id="lim-last">…</span>.</li>
+          </ul>
+          <p>Got an idea on how I can improve the methodology? I'd love to hear it -&gt; <a href="mailto:barnee@reallygood.engineering?subject=Hours%20lost%20to%20train%20delays%20-%20methodology">barnee@reallygood.engineering</a></p>
+        </div>
+      </div>
+
+      <footer class="reveal">
+        <span id="source-note">Source: Network Rail Historic Delay Attribution (RailData).</span>
+        <span id="updated-note"></span>
+      </footer>
+    </section>
+  </main>
+
+  <script>
+    document.documentElement.classList.add('js');
+
+    // The compiled summary lives in the public web bucket (refreshed monthly by
+    // the Cloud Function). Override with window.RAILDATA_SUMMARY_URL for local dev.
+    const DATA_URL = (window.RAILDATA_SUMMARY_URL)
+      || "https://storage.googleapis.com/ukraildelaytracker-web/summary.json";
+
+    // Fallback only — the real multiplier always comes from summary.json
+    // (people_per_train), so the limitations figure stays in sync automatically.
+    const PPT_FALLBACK = 100;
+
+    const nf = new Intl.NumberFormat('en-GB');
+    const fmtDate = iso => {
+      if (!iso) return null;
+      const d = new Date(iso + 'T00:00:00');
+      return isNaN(d) ? null : d.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+    };
+    const minutesToHours = (mins, ppt) => Math.round(mins * ppt / 60);
+    const HOURS_PER_YEAR = 24 * 365;
+
+    // An underlined glossary term with a hover/focus tooltip (reuses .term styles).
+    function makeTerm(label, tip) {
+      const term = document.createElement('span');
+      term.className = 'term win-term';
+      term.tabIndex = 0;
+      term.setAttribute('title', tip);
+      const l = document.createElement('span'); l.className = 'term-label'; l.textContent = label;
+      const t = document.createElement('span'); t.className = 'term-tip'; t.textContent = tip;
+      term.append(l, t);
+      return term;
+    }
+
+    // Plain-English explanation of each incident category, shown on hover/focus
+    // of a row in the breakdown. Keys match the names emitted in summary.json,
+    // summarising the range of underlying Network Rail incident reasons.
+    const CATEGORY_DESCRIPTIONS = {
+      "1st Order Reactionary": "Knock-on delay passed directly from one late train to another — lost paths from regulating decisions, waiting for connections, single-line conflicts, diversions, or trains held because of an incident on the route ahead.",
+      "2nd Order Reactionary": "Second-tier knock-on delay, where a train is held by the late arrival of its own inbound loco, stock or crew, by platform and station congestion, by short-formation overcrowding, or by tactical cancellations made to recover the service.",
+      "All P codes": "Planned, pre-agreed delays and cancellations — published speed restrictions and diversions within engineering allowances, possession-related and bank-holiday cancellations, commercially agreed exclusions, and the removal of duplicate or erroneous schedules.",
+      "All Z codes - Unexplained": "Delays left unexplained after investigation — no cause agreed by either party — plus automated system roll-ups for unattributed cancellations, late starts, station overtime and lost running time.",
+      "Axle Counter Failures": "Signalling delays from failures of axle counters, the equipment that detects whether a section of track is occupied.",
+      "Bridge strikes": "Road vehicles striking or becoming stuck under railway bridges.",
+      "Cable faults (lineside signalling)": "Delays from faults in the lineside cables that carry the signalling system.",
+      "Civil Engineering structures, earthworks & buildings": "Delays from earthworks and structures — embankment or cutting slips, rockfalls and subsidence (not weather-driven on the day), and faults to bridges, tunnels, retaining walls, sea defences and swing or lifting bridges.",
+      "ETCS including Balise Failures": "Delays in digital (ETCS/ERTMS) signalling areas — failures of trackside balises, of the ETCS equipment itself, or of the radio block centre affecting ETCS and automatic-train-operation running.",
+      "External Causes (Train Operator)": "Outside events charged to the train operator — passengers taken ill or injured on board, disorder, trespass, vandalism and theft, bird strikes, ticket disputes, communication-cord or alarm operation, security alerts, and severe weather affecting passenger trains.",
+      "External fatalities and trespass": "Delays caused by trespass and by people being struck by trains, including fatalities and injuries (intentional and not).",
+      "External fires": "Fires starting off the railway but directly affecting it, including line blocks while emergency services attend nearby incidents.",
+      "External infrastructure damage - Vandalism/Theft": "Delays from vandalism and theft — including cable theft and objects deliberately placed on the line.",
+      "External level crossing/road incidents (not bridges)": "Incidents at level crossings and the road interface — crossing misuse, cars on the line, and emergency services being given priority over trains (bridge strikes excluded).",
+      "External other": "Miscellaneous causes outside Network Rail's control — animals and large birds on the line, utility and National-Grid power failures, gas or water-main incidents, trees and structures encroaching from outside the boundary, swing bridges open for river traffic, and sun glare on signals.",
+      "External police on line/security alerts": "Delays from police searching the line and from security alerts, including line blocks for emergency services attending off-network incidents.",
+      "Fires starting on Network Rail Infrastructure": "Delays from fires that start on Network Rail's own infrastructure, such as lineside fires.",
+      "Freight Terminal/Yard delays": "Delays arising in off-network freight terminals and yards — waiting for acceptance, customer release, documentation or train preparation, yard congestion and staff shortages, crane and equipment failures, load incidents and yard mishaps.",
+      "Gauge Corner Cracking": "Track delays from rolling contact fatigue (gauge corner cracking), a form of cracking on the running surface of the rail.",
+      "Level crossing failures": "Technical faults and failures of level-crossing equipment, including barrow and foot crossings and crossing treadles.",
+      "Low Adhesion inc. Autumn (Train Operator)": "Reduced grip between wheel and rail — autumn leaf-fall contamination and ice on the running rail — attributed to the train operator.",
+      "Low adhesion inc. Autumn (Network Rail)": "Reduced wheel-to-rail grip attributed to Network Rail, including railhead-treatment (sanding) pump issues.",
+      "Mishap - infrastructure causes": "Safety incidents and mishaps caused by maintenance, renewals or infrastructure-contractor staff oversight or error.",
+      "Network Rail Operations - control": "Delays from Network Rail control decisions and directives — national, regional or route operating instructions, and very-short-term planning (VSTP) schedules.",
+      "Network Rail Operations - other": "Other Network Rail operating causes — control-system software problems, operating-staff oversight or absence, fires or evacuations of NR buildings, formal inquiries, and operating mishaps.",
+      "Network Rail Operations - railhead conditioning trains": "Delays linked to railhead-treatment ('ghost') trains that clean and treat the rail surface — their own technical failures or late starts, not reactionary delay.",
+      "Network Rail Operations - signalling": "Operational signalling delays — regulating and routing decisions, mis-routing, a signal box not open during booked hours, incorrect simplifiers, and local instructions correctly applied.",
+      "Network Rail commercial takeback/other": "Delays absorbed by Network Rail under commercial agreements where no substantive cause is identified, plus freight commercial splits and other non-operating causes.",
+      "Non Traction Power Supply Failures": "Delays from failures of the non-traction power supply and distribution system — lineside power, not the power that drives the trains.",
+      "Non-technical Fleet delays": "Train delays not from technical faults — depot operating problems, planned short-formed or underpowered services, non-depot engineering staff, and depot fires.",
+      "OLE/Third Rail faults": "Faults to the overhead line or third rail that power the trains — defects, AC/DC trips, obstructions on the overhead line, and power-supply failures or reductions.",
+      "Other Signal Equipment Failures": "Failures of other signalling equipment — AWS, ATP, TPWS and train-stop gear, token equipment, hot-axle-box and wheel detectors (HABD/WILD/Wheelchex), and train-dispatch equipment.",
+      "Other infrastructure": "Other infrastructure causes — animal strikes within NR's control, lift and escalator faults, off-track asset defects, litter and miscellaneous items on the line, no-fault-found reports, and preventative maintenance prompted by remote monitoring alerts.",
+      "Other possession related delay": "Possession-related delays other than over-runs — on-track-machine damage, restrictions left in place, possession cancellations, and reactionary delay to planned possessions.",
+      "Other weather (impact on infrastructure or network operations)": "Non-severe weather effects — snow, ice or frost on equipment, lightning strikes on unprotected assets, critical rail-temperature speed limits, ordinary flooding, ice on the conductor rail, and fog or falling-snow special working and blanket speed restrictions.",
+      "Points failures": "Failures of points — the movable track that switches trains between lines — including frozen points where heaters are missing, switched off or defective (and no-fault-found cases).",
+      "Possession over-run and related faults": "Delays when engineering work over-runs its booked possession of the track — late or failed engineering trains, on-track plant blocking the line, and waiting for clearance to pass booked trains.",
+      "Problems with trackside signs including TSR boards": "Trackside signs and temporary-speed-restriction boards blown down, fallen over, missing, defective or misplaced.",
+      "Reactionary delay to P-coded TSRs": "Knock-on delay caused by planned ('P-coded') temporary speed restrictions.",
+      "Severe weather (beyond design capability of infrastructure)": "Delays from weather beyond what the infrastructure is designed to withstand — severe snow, ice, heat, flooding and storms, lightning damage to protected systems, and weather-blown items including trees on the line.",
+      "Signal Failures": "Delays caused by signal failures, including cases where no fault is ultimately found.",
+      "Signalling System & Functional Power Failures": "Failures of signalling systems and their functional power supply — train describers, panels, ARS/SSI/TDM remote control, and block failures.",
+      "Station delays": "Delays originating at stations — dispatch errors and late 'ready to start', staff shortages and errors, passenger boarding and overcrowding, assistance for reduced-mobility passengers, lifts and escalators, customer-information failures, luggage and cycle loading, and station evacuations.",
+      "TSRs Due to Condition of Track": "Temporary speed restrictions imposed because of the condition of the track, applied outside the normal route rules and timetable-planning rules.",
+      "Technical Fleet delays": "Train delays from technical faults with the rolling stock — brakes, doors, traction, pantographs and shoegear, cab safety systems, couplers, and loco, unit and coach defects (including no-fault-found and weather effects on equipment).",
+      "Telecoms failures": "Failures of railway telecommunications — legacy and GSM-R radio, telecom equipment, and transmission and cable failures.",
+      "Timetable Planning": "Delays caused by how the timetable was planned — schedule and planning-process errors, erroneous simplifiers, unplanned diversions, and speed restrictions not planned for.",
+      "Track Circuit Failures": "Signalling delays from track-circuit failures, the equipment that detects whether track is occupied (including no-fault-found cases).",
+      "Track Faults including Broken Rails": "Delays from track defects — broken, cracked, twisted or buckled rails, other track defects such as fishplates and wet beds, and reported rough rides where no fault is found.",
+      "Track Patrols & related possessions": "Delays from line blocks and track-inspection patrols, including late handback of the line.",
+      "Track circuit failures - leaf fall": "Track-circuit failures caused by leaf-fall contamination on the rails, and the special working it requires.",
+      "Train operations": "Delays from how operators run their trains — crew, loco and stock diagramming, operator control decisions and directives, diversions and cancellations at the operator's request, marshalling and attaching/detaching, dangerous-goods incidents, ETCS driver-override, and time lost on non-Network-Rail lines.",
+      "Traincrew causes": "Delays from traincrew — crew not available (including after rest), rostering and diagramming issues, driver errors and SPADs, wrong routing, conductor, train-manager and catering-staff issues, and waiting for connections from other modes.",
+      "Uninvestigated Delay": "Delays that Network Rail did not properly investigate and assign to a specific cause.",
+      "Vegetation Management Failure": "Delays from failure to manage lineside vegetation to Network Rail standards, including trains striking overhanging branches.",
+      "Wheel slip due to leaf fall": "Delays from leaf fall on the rails — adhesion problems, cautioning, wheel-slip and overshoots, and failure to lay Sandite or run a railhead-conditioning train as programmed.",
+      "Unattributed / unknown": "Delays with no incident code recorded, or codes not found in the glossary."
+    };
+
+    function animateNumber(el, target) {
+      const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      if (reduce || target < 1) { el.textContent = nf.format(target); return; }
+      const dur = 1400, start = performance.now();
+      function tick(now) {
+        const t = Math.min(1, (now - start) / dur);
+        const eased = 1 - Math.pow(1 - t, 3);
+        el.textContent = nf.format(Math.round(target * eased));
+        if (t < 1) requestAnimationFrame(tick);
+      }
+      requestAnimationFrame(tick);
+    }
+
+    let summaryData = null;       // the full JSON
+    let showAllTime = false;      // headline scope
+
+    // Pick the figures for the current scope: rolling 12 months (top-level
+    // fields) or all-time (the all_time block the function now emits).
+    function activeFigures(data) {
+      if (showAllTime && data.all_time) return data.all_time;
+      return data;
+    }
+
+    function renderHeadline() {
+      const data = summaryData;
+      const ppt = data.people_per_train || PPT_FALLBACK;
+      const fig = activeFigures(data);
+
+      const totalHours = minutesToHours(fig.total_minutes, ppt);
+      animateNumber(document.getElementById('number'), totalHours);
+
+      const years = totalHours / HOURS_PER_YEAR;
+      document.getElementById('years').textContent =
+        years >= 1 ? `…or about ${nf.format(Math.round(years))} years` : '';
+
+      const windowEl = document.getElementById('window');
+      windowEl.textContent = '';
+      const end = fmtDate(fig.coverage_end);
+      if (showAllTime) {
+        const start = fmtDate(fig.coverage_start);
+        if (start && end) {
+          windowEl.append('over ', makeTerm('all time', `${start} to ${end}`), ' (since records started)');
+        } else {
+          windowEl.append('across the whole dataset');
+        }
+      } else if (fig.coverage_end) {
+        // The 12-month window: a year before the end date, to the end date.
+        const ed = new Date(fig.coverage_end + 'T00:00:00');
+        const sd = new Date(ed);
+        sd.setFullYear(sd.getFullYear() - 1);
+        const sdFmt = sd.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+        windowEl.append('over the past ', makeTerm('12 months', `${sdFmt} to ${end}`));
+      } else {
+        windowEl.append('over the last 12 months');
+      }
+    }
+
+    let detailTargets = { delay: 0, cancel: 0, reasons: [] };
+
+    function renderDetails() {
+      const data = summaryData;
+      const ppt = data.people_per_train || PPT_FALLBACK;
+      const fig = activeFigures(data);   // breakdown follows the all-time toggle
+
+      const delayH = minutesToHours(fig.delay_minutes, ppt);
+      const cancelH = minutesToHours(fig.cancellation_minutes, ppt);
+      detailTargets.delay = delayH;
+      detailTargets.cancel = cancelH;
+      document.getElementById('delay-hours').textContent = nf.format(delayH);
+      document.getElementById('cancel-hours').textContent = nf.format(cancelH);
+
+      const list = document.getElementById('reasons-list');
+      list.innerHTML = '';
+      detailTargets.reasons = [];
+      (fig.top_categories || []).forEach((c, i) => {
+        const li = document.createElement('li');
+        const hrs = minutesToHours(c.minutes, ppt);
+        // Use plain hyphens in the displayed copy (no em-dashes).
+        const desc = (CATEGORY_DESCRIPTIONS[c.name] || '').replace(/—/g, '-');
+        li.innerHTML = `<span class="rank">${i + 1}</span>`
+          + `<span class="rname"></span>`
+          + `<span class="rhours"><span class="rnum">${nf.format(hrs)}</span> hrs</span>`
+          + (desc ? `<span class="rtip" role="tooltip"></span>` : '');
+        li.querySelector('.rname').textContent = c.name;
+        if (desc) {
+          li.querySelector('.rtip').textContent = desc;
+          li.setAttribute('title', desc);   // native fallback (touch / no-hover)
+          li.setAttribute('tabindex', '0');
+        }
+        list.appendChild(li);
+        detailTargets.reasons.push({ el: li.querySelector('.rnum'), hrs });
+      });
+
+      renderChart(fig, ppt);
+    }
+
+    // Replay the count-up on the detail numbers, mirroring the grand total.
+    function countDetail() {
+      animateNumber(document.getElementById('delay-hours'), detailTargets.delay);
+      animateNumber(document.getElementById('cancel-hours'), detailTargets.cancel);
+      detailTargets.reasons.forEach(r => animateNumber(r.el, r.hrs));
+    }
+
+    // Month-by-month (per railway period) line of human-hours lost, with a
+    // least-squares trend line. Redraws whenever the scope toggle changes.
+    function renderChart(fig, ppt) {
+      const host = document.getElementById('chart');
+      const series = (fig.series || []).filter(p => p.total_minutes != null);
+      if (series.length < 2) { host.innerHTML = ''; return; }
+
+      const hours = series.map(p => p.total_minutes * ppt / 60);
+      const labels = series.map(p => {
+        const d = p.end ? new Date(p.end + 'T00:00:00') : null;
+        return (d && !isNaN(d)) ? d.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }) : '';
+      });
+      const n = hours.length;
+      const W = 700, H = 280, padL = 70, padR = 16, padT = 16, padB = 40;
+      const plotW = W - padL - padR, plotH = H - padT - padB;
+
+      // Round the axis up so the major ticks land on tidy multiples of 500k.
+      const UNIT = 500000;
+      const dataMax = Math.max(...hours) || 1;
+      let step = Math.ceil((dataMax / 4) / UNIT) * UNIT;   // ~4 intervals
+      if (step < UNIT) step = UNIT;
+      const yMax = Math.max(step, Math.ceil(dataMax / step) * step);
+      const ticks = [];
+      for (let t = 0; t <= yMax + 1; t += step) ticks.push(t);
+
+      const x = i => padL + (n === 1 ? plotW / 2 : (i / (n - 1)) * plotW);
+      const y = v => padT + plotH - (v / yMax) * plotH;
+
+      // Least-squares trend over the period index.
+      let sx = 0, sy = 0, sxx = 0, sxy = 0;
+      hours.forEach((v, i) => { sx += i; sy += v; sxx += i * i; sxy += i * v; });
+      const denom = (n * sxx - sx * sx) || 1;
+      const slope = (n * sxy - sx * sy) / denom;
+      const intercept = (sy - slope * sx) / n;
+      const trendY0 = y(intercept), trendY1 = y(intercept + slope * (n - 1));
+
+      const linePts = hours.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
+      const dots = hours.map((v, i) =>
+        `<circle cx="${x(i).toFixed(1)}" cy="${y(v).toFixed(1)}" r="3" fill="var(--turquoise)"></circle>`).join('');
+      // Larger invisible targets make the points easy to hover.
+      const hits = hours.map((v, i) =>
+        `<circle class="hit" data-i="${i}" cx="${x(i).toFixed(1)}" cy="${y(v).toFixed(1)}" r="14" fill="transparent" style="cursor:pointer"></circle>`).join('');
+      const grid = ticks.map(t => {
+        const yy = y(t).toFixed(1);
+        return `<line x1="${padL}" y1="${yy}" x2="${W - padR}" y2="${yy}" stroke="var(--line)" stroke-width="1"></line>`
+          + `<text x="${padL - 10}" y="${(y(t) + 4).toFixed(1)}" text-anchor="end" font-size="11" fill="var(--faint)">${nf.format(t)}</text>`;
+      }).join('');
+      const fmtShort = iso => {
+        const d = iso ? new Date(iso + 'T00:00:00') : null;
+        return (d && !isNaN(d)) ? d.toLocaleDateString('en-GB', { month: 'short', year: '2-digit' }) : '';
+      };
+      const xLabels =
+        `<text x="${padL}" y="${H - 12}" text-anchor="start" font-size="11" fill="var(--faint)">${fmtShort(series[0].end)}</text>`
+        + `<text x="${W - padR}" y="${H - 12}" text-anchor="end" font-size="11" fill="var(--faint)">${fmtShort(series[n - 1].end)}</text>`;
+
+      host.innerHTML =
+        `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">`
+        + grid
+        + `<polyline points="${linePts}" fill="none" stroke="var(--turquoise)" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"></polyline>`
+        + `<line x1="${x(0).toFixed(1)}" y1="${trendY0.toFixed(1)}" x2="${x(n - 1).toFixed(1)}" y2="${trendY1.toFixed(1)}" stroke="var(--faint)" stroke-width="1.5" stroke-dasharray="5 5"></line>`
+        + dots
+        + hits
+        + `<line class="trend-hit" x1="${x(0).toFixed(1)}" y1="${trendY0.toFixed(1)}" x2="${x(n - 1).toFixed(1)}" y2="${trendY1.toFixed(1)}" stroke="transparent" stroke-width="18" style="cursor:pointer"></line>`
+        + xLabels
+        + `</svg>`
+        + `<div class="chart-tip" id="chart-tip"></div>`;
+
+      const tip = host.querySelector('#chart-tip');
+      // Position the tooltip above an anchor, clamped to stay within the chart.
+      const showTip = (text, rect) => {
+        tip.textContent = text;
+        tip.classList.add('show');
+        const hr = host.getBoundingClientRect();
+        const half = tip.offsetWidth / 2;
+        let cx = rect.left - hr.left + rect.width / 2;
+        cx = Math.max(half + 2, Math.min(hr.width - half - 2, cx));
+        tip.style.left = cx + 'px';
+        tip.style.top = Math.max(2, rect.top - hr.top - 6) + 'px';
+      };
+      const hideTip = () => tip.classList.remove('show');
+
+      // Hover a point: month + exact hours.
+      host.querySelectorAll('circle.hit').forEach(c => {
+        const show = () => {
+          const i = +c.dataset.i;
+          showTip(`${labels[i]}: ${nf.format(Math.round(hours[i]))} hrs`, c.getBoundingClientRect());
+        };
+        c.addEventListener('mouseenter', show);
+        c.addEventListener('mousemove', show);
+        c.addEventListener('mouseleave', hideTip);
+      });
+
+      // Hover the trend line: average change per period.
+      const trendEl = host.querySelector('.trend-hit');
+      if (trendEl) {
+        const s = Math.round(slope);
+        const trendText = `Avg. trend: ${s >= 0 ? '+' : '-'}${nf.format(Math.abs(s))} hrs/period`;
+        const show = () => showTip(trendText, trendEl.getBoundingClientRect());
+        trendEl.addEventListener('mouseenter', show);
+        trendEl.addEventListener('mousemove', show);
+        trendEl.addEventListener('mouseleave', hideTip);
+      }
+    }
+
+    function render(data) {
+      summaryData = data;
+      const ppt = data.people_per_train || PPT_FALLBACK;
+      document.getElementById('lim-ppt').textContent = nf.format(ppt);
+
+      // Dates describing how far back the dataset actually goes.
+      const at = data.all_time || {};
+      const firstSeen = fmtDate(at.coverage_start);
+      const lastSeen = fmtDate(at.coverage_end);
+      const periods = at.window_periods;
+      document.getElementById('scope-note').textContent = (firstSeen && lastSeen)
+        ? `The dataset currently goes back to ${firstSeen}` +
+          (periods ? ` - ${periods} railway period${periods === 1 ? '' : 's'}` : '') +
+          `, up to ${lastSeen}.`
+        : '';
+      if (firstSeen) document.getElementById('lim-first').textContent = firstSeen;
+      if (lastSeen) document.getElementById('lim-last').textContent = lastSeen;
+
+      renderHeadline();
+      renderDetails();
+
+      if (data.generated_at) {
+        const gd = new Date(data.generated_at);
+        if (!isNaN(gd)) document.getElementById('updated-note').textContent =
+          ` Updated ${gd.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}.`;
+      }
+    }
+
+    function wireToggle() {
+      const hero = document.getElementById('hero');
+      const details = document.getElementById('details');
+      const cue = document.getElementById('scroll-cue');
+      hero.addEventListener('click', () => {
+        const open = details.classList.toggle('is-open');
+        hero.classList.toggle('is-open', open);
+        hero.setAttribute('aria-expanded', String(open));
+        details.setAttribute('aria-hidden', String(!open));
+        // The figure stays put; the breakdown simply grows beneath it. Overflow
+        // stays hidden throughout so the box never changes formatting context
+        // (which previously caused a small snap when the animation finished).
+        if (open) { cue.classList.add('hide'); countDetail(); }
+      });
+    }
+
+    function wireAllTime() {
+      const cb = document.getElementById('alltime-toggle');
+      cb.addEventListener('change', () => {
+        showAllTime = cb.checked;
+        if (!summaryData) return;
+        renderHeadline();
+        renderDetails();
+        if (document.getElementById('details').classList.contains('is-open')) countDetail();
+      });
+    }
+
+    function wireLimitations() {
+      const btn = document.getElementById('lim-toggle');
+      const box = document.getElementById('limitations');
+      btn.addEventListener('click', () => {
+        const open = box.classList.toggle('is-open');
+        btn.setAttribute('aria-expanded', String(open));
+        box.setAttribute('aria-hidden', String(!open));
+      });
+    }
+
+    function wireScrollCue() {
+      const cue = document.getElementById('scroll-cue');
+      const below = document.getElementById('below');
+      cue.addEventListener('click', () => {
+        below.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+      // Fade the cue out as soon as the visitor starts scrolling.
+      window.addEventListener('scroll', () => {
+        if (window.scrollY > 40) cue.classList.add('hide');
+      }, { passive: true });
+    }
+
+    // Keep the underlined-term tooltips on screen (esp. narrow mobile widths).
+    function wireTermTips() {
+      const clamp = term => {
+        const tip = term.querySelector('.term-tip');
+        if (!tip) return;
+        tip.style.marginLeft = '0px';
+        const rect = tip.getBoundingClientRect();
+        const m = 8;
+        let shift = 0;
+        if (rect.left < m) shift = m - rect.left;
+        else if (rect.right > window.innerWidth - m) shift = (window.innerWidth - m) - rect.right;
+        if (shift) tip.style.marginLeft = Math.round(shift) + 'px';
+      };
+      document.addEventListener('mouseover', e => {
+        const t = e.target.closest && e.target.closest('.term');
+        if (t) clamp(t);
+      });
+      document.addEventListener('focusin', e => {
+        const t = e.target.closest && e.target.closest('.term');
+        if (t) clamp(t);
+      });
+    }
+
+    function wireReveal() {
+      const items = document.querySelectorAll('.reveal');
+      if (!('IntersectionObserver' in window)) {
+        items.forEach(el => el.classList.add('in'));
+        return;
+      }
+      const io = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('in');
+            io.unobserve(entry.target);
+          }
+        });
+      }, { threshold: 0.15 });
+      items.forEach(el => io.observe(el));
+    }
+
+    wireToggle();
+    wireAllTime();
+    wireLimitations();
+    wireScrollCue();
+    wireReveal();
+    wireTermTips();
+    fetch(DATA_URL, { cache: 'no-store' })
+      .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
+      .then(render)
+      .catch(err => {
+        document.getElementById('number').textContent = '—';
+        document.getElementById('window').textContent = 'Data temporarily unavailable.';
+        console.error('Failed to load summary:', err);
+      });
+  </script>
+</body>
+</html>

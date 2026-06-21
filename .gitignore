@@ -1,0 +1,30 @@
+# macOS
+.DS_Store
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+
+# Secrets / credentials (never commit service-account keys or env files)
+*.env
+.env
+.env.*
+*-key.json
+*serviceaccount*.json
+gcp-key*.json
+
+# Firebase
+.firebase/
+firebase-debug.log
+*-debug.log
+.runtimeconfig.json
+
+# Claude Code (local, machine-specific settings)
+.claude/settings.local.json
+
+# Locally-generated derived data (run_local.py output; served by local dev server)
+web/derived/
