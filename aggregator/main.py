@@ -9,7 +9,7 @@ Environment variables (all optional, with sensible defaults):
   PERIODS_PREFIX    where per-period JSON is kept (default "derived/periods/")
   SUMMARY_BUCKET    bucket for the public summary (default = source bucket)
   SUMMARY_OBJECT    object name for the summary   (default "summary.json")
-  PEOPLE_PER_TRAIN  multiplier                    (default 150)
+  PEOPLE_PER_TRAIN  passengers-per-train estimate (default in code; may be revised)
   WINDOW_PERIODS    rolling window in periods     (default 13)
 """
 import csv
