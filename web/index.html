@@ -55,15 +55,6 @@
     }
     .headline { width: 100%; max-width: 880px; }
 
-    .eyebrow {
-      font-size: clamp(12px, 1.6vw, 14px);
-      letter-spacing: 0.14em;
-      text-transform: uppercase;
-      color: var(--faint);
-      margin: 0 0 2.2rem;
-      font-weight: 500;
-    }
-
     .hero { position: relative; display: inline-block; cursor: pointer; border: 0; background: none; padding: 0; color: inherit; font: inherit; }
     .hero:focus-visible { outline: 2px solid var(--accent); outline-offset: 8px; border-radius: 8px; }
     .number {
@@ -92,6 +83,23 @@
       color: var(--faint);
       margin: 0.7rem 0 0;
     }
+
+    /* "more detailed breakdown" pill that toggles the same panel as the figure */
+    .more-btn {
+      display: inline-flex; align-items: center; gap: 8px;
+      margin: 1.9rem 0 0;
+      border: 1px solid var(--turquoise); background: none; cursor: pointer;
+      font: inherit; font-size: 13px; font-weight: 500; letter-spacing: 0.01em;
+      color: var(--turquoise); padding: 9px 18px; border-radius: 999px;
+      transition: background 0.2s ease, color 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease;
+    }
+    .more-btn svg { width: 15px; height: 15px; transition: transform 0.3s ease; }
+    .more-btn:hover, .more-btn:focus-visible {
+      background: var(--turquoise); color: var(--bg);
+      transform: translateY(-1px); box-shadow: 0 6px 18px rgba(13, 148, 136, 0.28);
+    }
+    .more-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+    .more-btn.is-open svg { transform: rotate(180deg); }
 
     /* "human-hours" glossary term with hover/focus tooltip */
     .term { position: relative; cursor: help; outline: none; }
@@ -269,13 +277,8 @@
     .switch input:checked + .track { background: var(--turquoise); }
     .switch input:checked + .track::after { transform: translateX(18px); }
     .switch input:focus-visible + .track { outline: 2px solid var(--accent); outline-offset: 3px; }
-    .scope-note {
-      font-size: 12px; color: var(--faint); line-height: 1.5;
-      margin: 0.9rem auto 0; max-width: 46ch;
-    }
-
     /* Limitations disclosure */
-    .lim-wrap { margin-top: 3.4rem; }
+    .lim-wrap { margin-top: 1.5rem; }
     .lim-toggle {
       border: 0; background: none; padding: 0; cursor: pointer;
       font: inherit; font-size: 12px; color: var(--faint);
@@ -306,7 +309,7 @@
     }
     .limitations a { color: var(--turquoise); }
 
-    footer { margin-top: 3.4rem; font-size: 12px; color: var(--faint); line-height: 1.6; }
+    footer { margin-top: 1.5rem; font-size: 12px; color: var(--faint); line-height: 1.6; }
     footer a { color: inherit; }
 
     @media (prefers-reduced-motion: reduce) {
@@ -319,8 +322,6 @@
   <main>
     <section class="hero-screen">
       <div class="headline">
-        <p class="eyebrow">Britain's railways</p>
-
         <button class="hero" id="hero" aria-expanded="false" aria-controls="details">
           <span class="tooltip" id="tooltip">Click for a detailed breakdown</span>
           <p class="number" id="number" aria-live="polite">—</p>
@@ -328,6 +329,14 @@
 
         <p class="caption"><span class="term" id="hh-term" tabindex="0" role="note"><span class="term-label">human-hours</span><span class="term-tip">Human-hours are the total hours humans have lost - waiting for trains to arrive due to delays, or waiting until the next available train due to a cancellation.</span></span> lost to train delays and cancellations <span class="window" id="window"></span></p>
         <p class="years" id="years"></p>
+
+        <button class="more-btn" id="more-btn" type="button" aria-expanded="false" aria-controls="details">
+          <span class="more-label">more detailed breakdown</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <polyline points="6 9 12 15 18 9" />
+          </svg>
+        </button>
 
         <section class="details" id="details" aria-hidden="true">
           <hr class="div" />
@@ -377,13 +386,11 @@
           <span class="track" aria-hidden="true"></span>
           <span id="scope-label">Show all hours lost since records began</span>
         </label>
-        <p class="scope-note" id="scope-note"></p>
       </div>
 
       <div class="lim-wrap reveal">
         <button class="lim-toggle" id="lim-toggle" aria-expanded="false" aria-controls="limitations">limitations &amp; methodology&#42;</button>
         <div class="limitations" id="limitations" aria-hidden="true">
-          <p>This is a deliberately simple estimate, meant to convey scale rather than a precise count. Here's exactly how it's built - and where it's rough.</p>
 
           <h3>How the figure is built</h3>
           <ol>
@@ -399,12 +406,13 @@
             <li><strong>Time window.</strong> The headline covers a rolling ~12 month period. The toggle switch above re-scopes everything to all time, summing every period on record - currently <span id="lim-first">&hellip;</span> to <span id="lim-last">&hellip;</span>.</li>
           </ol>
 
-          <h3>Where it's rough</h3>
+          <h3>Limitations</h3>
           <ul>
             <li><strong>Derived passenger loadings are averages, not actual counts.</strong> Each operator's figure is an annual average. As a result, it doesn't reflect time of day, peak crowding, or direction of travel. A packed morning commuter train and a near-empty late-night one get the same multiplier, so individual trains are over or under-counted (though the mix of operators is properly reflected). This approach serves as a grounded guide, but isn't perfect - though I don't think it should be too far off.</li>
             <li><strong>The freight equivalent is the weakest assumption.</strong> Valuing a freight train's delay as a passenger-equivalent currently relies on national value-of-time figures rather than the specific cargo, so freight's share is a grounded approximation. If you can think of a better approach, please get in touch!</li>
             <li><strong>Cancellations are treated like delays.</strong> Cancellation minutes are folded in alongside delay minutes; in reality a cancellation affects a passenger differently (waiting for the next service, missing connections downstream, or abandoning the trip entirely), so combining them is a rough proxy.</li>
             <li><strong>Only attributed delays are counted.</strong> The dataset captures delays Network Rail has logged and attributed; some are recorded as uninvestigated or unattributed, and disruption outside that process isn't included.</li>
+            <li><strong>The record has a fixed start.</strong> <span id="scope-note"></span> Anything before that isn't captured here.</li>
             <li><strong>Knock-on impact isn't fully captured.</strong> Missed connections, abandoned journeys and the wider knock-on to people's days fall outside these figures.</li>
           </ul>
 
@@ -755,16 +763,25 @@
       const hero = document.getElementById('hero');
       const details = document.getElementById('details');
       const cue = document.getElementById('scroll-cue');
-      hero.addEventListener('click', () => {
-        const open = details.classList.toggle('is-open');
+      const moreBtn = document.getElementById('more-btn');
+      const moreLabel = moreBtn.querySelector('.more-label');
+
+      // Both the figure itself and the explicit "more detailed breakdown" pill
+      // open the same panel. The figure stays put; the breakdown grows beneath it.
+      const setOpen = (open) => {
+        details.classList.toggle('is-open', open);
         hero.classList.toggle('is-open', open);
         hero.setAttribute('aria-expanded', String(open));
         details.setAttribute('aria-hidden', String(!open));
-        // The figure stays put; the breakdown simply grows beneath it. Overflow
-        // stays hidden throughout so the box never changes formatting context
-        // (which previously caused a small snap when the animation finished).
+        moreBtn.classList.toggle('is-open', open);
+        moreBtn.setAttribute('aria-expanded', String(open));
+        moreLabel.textContent = open ? 'hide detailed breakdown' : 'more detailed breakdown';
         if (open) { cue.classList.add('hide'); countDetail(); }
-      });
+      };
+
+      const toggle = () => setOpen(!details.classList.contains('is-open'));
+      hero.addEventListener('click', toggle);
+      moreBtn.addEventListener('click', toggle);
     }
 
     function wireAllTime() {

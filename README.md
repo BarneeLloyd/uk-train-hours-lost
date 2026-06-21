@@ -3,9 +3,12 @@
 A single-page site showing the total human-hours lost to train delays and
 cancellations across Britain, from Network Rail's Historic Delay Attribution
 dataset (RailData). The headline defaults to the rolling 12 months, with an
-**all-time toggle** that re-scopes the whole page. An expandable breakdown
+**all-time toggle** that re-scopes the whole page. An expandable breakdown —
+opened by clicking the figure or the **"more detailed breakdown"** button —
 shows the delay/cancellation split, the top-10 incident reasons (each with a
 plain-English description), and a month-by-month trend chart with a trend line.
+A **limitations & methodology** disclosure explains how the figure is built and
+its caveats (including the dataset's coverage dates).
 
 **Live:** https://uk-train-hours-lost.web.app
 
