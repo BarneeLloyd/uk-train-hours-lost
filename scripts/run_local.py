@@ -16,7 +16,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "aggregator"))
-from aggregate_core import aggregate_rows, build_summary  # noqa: E402
+from aggregate_core import (  # noqa: E402
+    aggregate_rows, build_summary, make_conversion, operator_class_map,
+)
 
 ROOT = Path(__file__).resolve().parent.parent
 AGG = ROOT / "aggregator"
@@ -53,6 +55,10 @@ def rows_from_file(path):
 def main():
     reason_map = json.loads((AGG / "incident_reason_map.json").read_text())
     period_dates = json.loads((AGG / "period_end_dates.json").read_text())
+    operator_map = json.loads((AGG / "operator_map.json").read_text())
+    conversion_params = json.loads((AGG / "conversion_params.json").read_text())
+    operator_class = operator_class_map(operator_map)
+    conversion = make_conversion(conversion_params, operator_map)
     PERIODS_DIR.mkdir(parents=True, exist_ok=True)
 
     inputs = [Path(p) for p in sys.argv[1:]] or [p for p in DEFAULT_INPUTS if p.exists()]
@@ -64,7 +70,7 @@ def main():
         if not path.exists():
             print(f"  skip (missing): {path}")
             continue
-        summary = aggregate_rows(rows_from_file(path), reason_map)
+        summary = aggregate_rows(rows_from_file(path), reason_map, operator_class)
         period = summary["period"]
         if not period:
             print(f"  skip (no period detected): {path.name}")
@@ -81,16 +87,17 @@ def main():
     summary = build_summary(
         all_periods,
         period_end_dates=period_dates,
+        conversion=conversion,
         generated_at=datetime.now(timezone.utc).isoformat(timespec="seconds"),
     )
     SUMMARY_PATH.write_text(json.dumps(summary, indent=2))
 
-    ppt = summary["people_per_train"]
-    hours = summary["total_minutes"] * ppt / 60
     print(f"\nsummary.json -> {summary['window_periods']} period(s) "
           f"{summary['period_first']}..{summary['period_last']} "
           f"({summary['coverage_start']}..{summary['coverage_end']})")
-    print(f"  total human-hours (x{ppt}): {round(hours):,}")
+    print(f"  total hours: {round(summary['total_hours']):,} "
+          f"(passenger {round(summary['passenger_hours']):,} / "
+          f"freight {round(summary['freight_hours']):,})")
 
 
 if __name__ == "__main__":

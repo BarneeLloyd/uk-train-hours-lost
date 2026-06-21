@@ -1,0 +1,438 @@
+{
+  "D1": {
+    "class": "freight",
+    "name": "Freightliner Inf"
+  },
+  "D2": {
+    "class": "freight",
+    "name": "Freightliner HH"
+  },
+  "DB": {
+    "class": "freight",
+    "name": "Freightliner Intermodal"
+  },
+  "E1": {
+    "class": "passenger",
+    "name": "GWR Charters"
+  },
+  "EA": {
+    "class": "passenger",
+    "name": "TransPennine"
+  },
+  "EB": {
+    "class": "passenger",
+    "name": "Greater Anglia"
+  },
+  "EC": {
+    "class": "passenger",
+    "name": "Grand Central"
+  },
+  "ED": {
+    "class": "passenger",
+    "name": "Northern Trains"
+  },
+  "EF": {
+    "class": "passenger",
+    "name": "GWR"
+  },
+  "EH": {
+    "class": "passenger",
+    "name": "CrossCountry"
+  },
+  "EI": {
+    "class": "passenger",
+    "name": "Wrexham & Shrops"
+  },
+  "EJ": {
+    "class": "passenger",
+    "name": "West Midlands Trains"
+  },
+  "EK": {
+    "class": "passenger",
+    "name": "London Overground"
+  },
+  "EM": {
+    "class": "passenger",
+    "name": "EMR"
+  },
+  "ES": {
+    "class": "passenger",
+    "name": "Caledonian Sleeper"
+  },
+  "ET": {
+    "class": "passenger",
+    "name": "GTR"
+  },
+  "EX": {
+    "class": "passenger",
+    "name": "Elizabeth line"
+  },
+  "FM": {
+    "class": "freight",
+    "name": "DB Schenker Res"
+  },
+  "GA": {
+    "class": "passenger",
+    "name": "Eurostar Int"
+  },
+  "GO": {
+    "class": "passenger",
+    "name": "Go-op Cooperative"
+  },
+  "HA": {
+    "class": "passenger",
+    "name": "ScotRail"
+  },
+  "HB": {
+    "class": "passenger",
+    "name": "LNER"
+  },
+  "HC": {
+    "class": "passenger",
+    "name": "ATN"
+  },
+  "HD": {
+    "class": "passenger",
+    "name": "FNW"
+  },
+  "HE": {
+    "class": "passenger",
+    "name": "Merseyrail"
+  },
+  "HF": {
+    "class": "passenger",
+    "name": "Avanti West Coast"
+  },
+  "HG": {
+    "class": "passenger",
+    "name": "Central"
+  },
+  "HH": {
+    "class": "passenger",
+    "name": "VXC"
+  },
+  "HI": {
+    "class": "passenger",
+    "name": "MML"
+  },
+  "HJ": {
+    "class": "passenger",
+    "name": "GWR HSTs"
+  },
+  "HK": {
+    "class": "passenger",
+    "name": "Wessex"
+  },
+  "HL": {
+    "class": "passenger",
+    "name": "TfW Rail Limited"
+  },
+  "HM": {
+    "class": "passenger",
+    "name": "HEx"
+  },
+  "HN": {
+    "class": "passenger",
+    "name": "GWRL"
+  },
+  "HO": {
+    "class": "passenger",
+    "name": "Chiltern"
+  },
+  "HP": {
+    "class": "passenger",
+    "name": "Silverlink"
+  },
+  "HQ": {
+    "class": "passenger",
+    "name": "WAGN"
+  },
+  "HR": {
+    "class": "passenger",
+    "name": "FGE"
+  },
+  "HS": {
+    "class": "passenger",
+    "name": "Anglia"
+  },
+  "HT": {
+    "class": "passenger",
+    "name": "c2c"
+  },
+  "HU": {
+    "class": "passenger",
+    "name": "Southeastern"
+  },
+  "HX": {
+    "class": "passenger",
+    "name": "Thameslink"
+  },
+  "HY": {
+    "class": "passenger",
+    "name": "South Western Railway"
+  },
+  "L1": {
+    "class": "freight",
+    "name": "Locomotive Services Freight"
+  },
+  "L2": {
+    "class": "freight",
+    "name": "Loram"
+  },
+  "LC": {
+    "class": "freight",
+    "name": "Loram"
+  },
+  "LD": {
+    "class": "passenger",
+    "name": "Lumo"
+  },
+  "LF": {
+    "class": "passenger",
+    "name": "Grand Union Trains"
+  },
+  "LG": {
+    "class": "freight",
+    "name": "Legge Infrastructure Services"
+  },
+  "LN": {
+    "class": "passenger",
+    "name": "Grand Central (North West)"
+  },
+  "LR": {
+    "class": "freight",
+    "name": "Network Rail"
+  },
+  "LS": {
+    "class": "freight",
+    "name": "Locomotive Services"
+  },
+  "MV": {
+    "class": "freight",
+    "name": "Varamis Rail"
+  },
+  "P1": {
+    "class": "freight",
+    "name": "GB Rail Eng"
+  },
+  "P2": {
+    "class": "freight",
+    "name": "Victa Westlink Rail - Passenger"
+  },
+  "P3": {
+    "class": "passenger",
+    "name": "Advenza Charters"
+  },
+  "P4": {
+    "class": "passenger",
+    "name": "GB Railfreight - Charters"
+  },
+  "P5": {
+    "class": "freight",
+    "name": "WCRL - Infrastructure"
+  },
+  "P6": {
+    "class": "freight",
+    "name": "DCR Infrastructure"
+  },
+  "P7": {
+    "class": "freight",
+    "name": "WCR Freight"
+  },
+  "P8": {
+    "class": "passenger",
+    "name": "Rail Operations Group - Charters"
+  },
+  "PA": {
+    "class": "freight",
+    "name": "WCRL"
+  },
+  "PC": {
+    "class": "passenger",
+    "name": "VSOE"
+  },
+  "PE": {
+    "class": "freight",
+    "name": "GB Railfreight"
+  },
+  "PF": {
+    "class": "passenger",
+    "name": "Hull Trains"
+  },
+  "PG": {
+    "class": "passenger",
+    "name": "Nexus"
+  },
+  "PH": {
+    "class": "freight",
+    "name": "Rail Operations Group"
+  },
+  "PI": {
+    "class": "freight",
+    "name": "Advenza Freight - Not In Use"
+  },
+  "PJ": {
+    "class": "freight",
+    "name": "Victa Westlink Rail - Not in Use"
+  },
+  "PK": {
+    "class": "freight",
+    "name": "PreMet"
+  },
+  "PN": {
+    "class": "freight",
+    "name": "Freight Europe - Not in Use"
+  },
+  "PO": {
+    "class": "freight",
+    "name": "DCR"
+  },
+  "PR": {
+    "class": "passenger",
+    "name": "NYMR"
+  },
+  "PS": {
+    "class": "passenger",
+    "name": "SNCF - Not in Use"
+  },
+  "PT": {
+    "class": "freight",
+    "name": "Europorte Channel"
+  },
+  "PV": {
+    "class": "freight",
+    "name": "VICTA RAIL"
+  },
+  "R1": {
+    "class": "freight",
+    "name": "Fastline Infra - Not in Use"
+  },
+  "R2": {
+    "class": "freight",
+    "name": "Colas Infrastucture"
+  },
+  "R4": {
+    "class": "freight",
+    "name": "Harsco Rail Freight"
+  },
+  "RB": {
+    "class": "freight",
+    "name": "Carillion Rail"
+  },
+  "RD": {
+    "class": "freight",
+    "name": "SB (Swietelsky Babcock) Rail"
+  },
+  "RE": {
+    "class": "freight",
+    "name": "AMEY"
+  },
+  "RG": {
+    "class": "freight",
+    "name": "Colas Freight"
+  },
+  "RH": {
+    "class": "freight",
+    "name": "Volker Rail"
+  },
+  "RJ": {
+    "class": "freight",
+    "name": "Fastline Freight - Not In Use"
+  },
+  "RQ": {
+    "class": "freight",
+    "name": "Carillion"
+  },
+  "RR": {
+    "class": "freight",
+    "name": "JSD R&D Ltd"
+  },
+  "RT": {
+    "class": "freight",
+    "name": "Harsco"
+  },
+  "RU": {
+    "class": "freight",
+    "name": "Seco"
+  },
+  "RZ": {
+    "class": "freight",
+    "name": "Balfour RP"
+  },
+  "S1": {
+    "class": "freight",
+    "name": "SLC Operations"
+  },
+  "SD": {
+    "class": "freight",
+    "name": "Serco Rail Ops"
+  },
+  "SJ": {
+    "class": "passenger",
+    "name": "South Yorkshire Supertram"
+  },
+  "SO": {
+    "class": "freight",
+    "name": "RailAdventure UK"
+  },
+  "SP": {
+    "class": "passenger",
+    "name": "Swanage Railway"
+  },
+  "T1": {
+    "class": "passenger",
+    "name": "Vintage Trains"
+  },
+  "TY": {
+    "class": "passenger",
+    "name": "Vintage Trains"
+  },
+  "W1": {
+    "class": "passenger",
+    "name": "DBC Charters"
+  },
+  "WA": {
+    "class": "freight",
+    "name": "DB Cargo"
+  },
+  "X1": {
+    "class": "passenger",
+    "name": "DRS Charters"
+  },
+  "X2": {
+    "class": "freight",
+    "name": "DRS Infrastructure"
+  },
+  "XB": {
+    "class": "passenger",
+    "name": "LUL DL W'don"
+  },
+  "XC": {
+    "class": "passenger",
+    "name": "LUL Bakerloo"
+  },
+  "XE": {
+    "class": "passenger",
+    "name": "LUL DL R'mond"
+  },
+  "XH": {
+    "class": "freight",
+    "name": "DRS"
+  },
+  "XX": {
+    "class": "freight",
+    "name": "Wrong Tsc"
+  },
+  "Y1": {
+    "class": "passenger",
+    "name": "Hanson & Hall Charters"
+  },
+  "YG": {
+    "class": "freight",
+    "name": "Hanson & Hall"
+  },
+  "ZZ": {
+    "class": "freight",
+    "name": "DBCargo RITS"
+  }
+}

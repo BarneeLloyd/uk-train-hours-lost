@@ -33,38 +33,54 @@ The page reads data cross-project via the public `summary.json` URL.
 ## The calculation
 
 Per row of the CSV: `PFPI_MINUTES` (delay) and `NON_PFPI_MINUTES` (cancellation)
-are summed. Totals are stored as **minutes** (not hours), so the multiplier and
-window stay adjustable without reprocessing.
+are summed, **broken down by operator** (`TOC_CODE`). Per-period totals are stored
+as raw **minutes** so the conversion stays adjustable without reprocessing; the
+summary build then converts minutes to a single "equivalent person-hours" figure:
 
-- **Total human-hours** = (delay + cancellation minutes) × `people_per_train` / 60
-- **Delay hours** = delay minutes × people_per_train / 60
-- **Cancellation hours** = cancellation minutes × people_per_train / 60
+- **Passenger trains** → `delay_minutes / 60 × passengers-per-train[operator]`.
+  Loads are operator-specific, derived from ORR passenger-km ÷ train-km
+  (`conversion_params.json`), defaulting to the national average (~126) for
+  operators not in the table.
+- **Freight / engineering trains** (no passengers) → `delay_minutes / 60 ×
+  freight_equiv_passengers`, a single constant that bridges a freight-train
+  delay-hour to *equivalent* passenger-hours via the DfT TAG value-of-time ratio.
+- **Total hours** = passenger hours + freight hours (one commensurable number).
 - **Top 10 incident reasons**: `INCIDENT_REASON` codes are mapped to the glossary's
-  *Incident Category Description* and aggregated. (Verified 100% of codes map.)
+  *Incident Category Description*, split passenger/freight, and converted to hours.
 
-Note: `*_MINUTES` are not integers — the real data carries fractional minutes
-(e.g. `1.5`, `6.35`), summed as floats and rounded only for display.
+Operator passenger vs freight is classified in `operator_map.json` (from the
+glossary's *Operator Name* sheet). Note: `*_MINUTES` are not integers — the real
+data carries fractional minutes (e.g. `1.5`, `6.35`), summed as floats.
 
-## Adjusting the "people per train" multiplier (currently 100)
+## Adjusting the conversion (per-operator loads, national default, freight)
 
-The multiplier lives in **two** places:
-
-1. Past data already summarised — the function writes the value it used into
-   `summary.json` as `people_per_train`, and the page applies it at read time.
-   To change it, update the function's env var and rebuild:
-   ```bash
-   gcloud functions deploy nwr-delay-aggregator --region=europe-west1 --gen2 \
-     --update-env-vars=PEOPLE_PER_TRAIN=175 --source=aggregator   # then re-run backfill
-   SUMMARY_BUCKET=ukraildelaytracker-web python scripts/backfill_gcs.py nwr-historic-delay-attribution-data
-   ```
-   (Other env vars: `WINDOW_PERIODS` default 13, `RAW_PREFIX`, `PERIODS_PREFIX`,
-   `SUMMARY_BUCKET`, `SUMMARY_OBJECT`.)
+- **Per-operator passenger loads** come from ORR tables 1233 & 1243. Download both
+  `.ods` files and regenerate `aggregator/conversion_params.json`:
+  ```bash
+  python scripts/build_operator_loads.py ~/Downloads/table-1233-*.ods ~/Downloads/table-1243-*.ods
+  ```
+- **National default load** and **freight equivalent** can be tweaked in
+  `conversion_params.json`, or overridden per-deploy without re-running the script:
+  ```bash
+  gcloud functions deploy nwr-delay-aggregator --region=europe-west1 --gen2 \
+    --update-env-vars=DEFAULT_PASSENGER_LOAD=130,FREIGHT_EQUIV_PASSENGERS=20 --source=aggregator
+  SUMMARY_BUCKET=ukraildelaytracker-web python scripts/backfill_gcs.py nwr-historic-delay-attribution-data
+  ```
+  The page reads the headline numbers from `summary.json`, so changing them
+  needs a backfill (the conversion is no longer applied client-side).
+  (Other env vars: `WINDOW_PERIODS` default 13, `RAW_PREFIX`, `PERIODS_PREFIX`,
+  `SUMMARY_BUCKET`, `SUMMARY_OBJECT`.)
 
 ## Layout
 
 - `aggregator/` — Cloud Function source (`main.py`), pure logic (`aggregate_core.py`),
-  bundled lookups (`incident_reason_map.json`, `period_end_dates.json`), `requirements.txt`.
-- `scripts/build_lookups.py` — regenerate the lookup JSONs from the glossary xlsx (run when it changes).
+  bundled lookups (`incident_reason_map.json`, `period_end_dates.json`,
+  `operator_map.json`, `conversion_params.json`), `requirements.txt`.
+- `scripts/build_lookups.py` — regenerate the glossary-derived lookups (incident reasons,
+  period end dates, operator map) from the glossary xlsx (run when it changes).
+- `scripts/build_operator_loads.py` — regenerate per-operator passenger loads in
+  `conversion_params.json` from the ORR `.ods` tables (1233 & 1243).
+- `tests/test_aggregate_core.py` — sanity tests for the hours conversion.
 - `scripts/run_local.py` — run the whole pipeline locally against sample files into `web/derived/`.
 - `scripts/backfill_gcs.py` — process every zip already in the bucket and rebuild `summary.json`.
 - `web/index.html` — the page.

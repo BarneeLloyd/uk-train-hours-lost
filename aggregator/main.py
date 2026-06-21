@@ -9,8 +9,13 @@ Environment variables (all optional, with sensible defaults):
   PERIODS_PREFIX    where per-period JSON is kept (default "derived/periods/")
   SUMMARY_BUCKET    bucket for the public summary (default = source bucket)
   SUMMARY_OBJECT    object name for the summary   (default "summary.json")
-  PEOPLE_PER_TRAIN  passengers-per-train estimate (default in code; may be revised)
   WINDOW_PERIODS    rolling window in periods     (default 13)
+  DEFAULT_PASSENGER_LOAD    override national avg passengers/train (else from JSON)
+  FREIGHT_EQUIV_PASSENGERS  override freight equivalent passengers  (else from JSON)
+
+Per-operator passenger loads, the freight equivalent and operator classes live
+in the bundled conversion_params.json / operator_map.json; the two env vars above
+only override the headline numbers without re-running build_operator_loads.py.
 """
 import csv
 import io
@@ -23,16 +28,25 @@ from pathlib import Path
 import functions_framework
 from google.cloud import storage
 
-from aggregate_core import aggregate_rows, build_summary
+from aggregate_core import (
+    aggregate_rows, build_summary, make_conversion, operator_class_map,
+)
 
 _HERE = Path(__file__).resolve().parent
 REASON_MAP = json.loads((_HERE / "incident_reason_map.json").read_text())
 PERIOD_END_DATES = json.loads((_HERE / "period_end_dates.json").read_text())
+OPERATOR_MAP = json.loads((_HERE / "operator_map.json").read_text())
+CONVERSION_PARAMS = json.loads((_HERE / "conversion_params.json").read_text())
+if os.environ.get("DEFAULT_PASSENGER_LOAD"):
+    CONVERSION_PARAMS["default_passenger_load"] = int(os.environ["DEFAULT_PASSENGER_LOAD"])
+if os.environ.get("FREIGHT_EQUIV_PASSENGERS"):
+    CONVERSION_PARAMS["freight_equiv_passengers"] = int(os.environ["FREIGHT_EQUIV_PASSENGERS"])
+OPERATOR_CLASS = operator_class_map(OPERATOR_MAP)
+CONVERSION = make_conversion(CONVERSION_PARAMS, OPERATOR_MAP)
 
 RAW_PREFIX = os.environ.get("RAW_PREFIX", "raw_zip-file-dump/")
 PERIODS_PREFIX = os.environ.get("PERIODS_PREFIX", "derived/periods/")
 SUMMARY_OBJECT = os.environ.get("SUMMARY_OBJECT", "summary.json")
-PEOPLE_PER_TRAIN = int(os.environ.get("PEOPLE_PER_TRAIN", "100"))
 WINDOW_PERIODS = int(os.environ.get("WINDOW_PERIODS", "13"))
 
 _client = None
@@ -65,7 +79,7 @@ def process_zip(bucket_name, object_name):
             return None
         with zf.open(csv_names[0]) as raw:
             text = io.TextIOWrapper(raw, encoding="utf-8-sig", newline="")
-            summary = aggregate_rows(csv.DictReader(text), REASON_MAP)
+            summary = aggregate_rows(csv.DictReader(text), REASON_MAP, OPERATOR_CLASS)
 
     period = summary["period"]
     if not period:
@@ -95,7 +109,7 @@ def rebuild_summary(source_bucket_name):
         period_summaries,
         period_end_dates=PERIOD_END_DATES,
         window=WINDOW_PERIODS,
-        people_per_train=PEOPLE_PER_TRAIN,
+        conversion=CONVERSION,
         generated_at=datetime.now(timezone.utc).isoformat(timespec="seconds"),
     )
 
@@ -104,7 +118,8 @@ def rebuild_summary(source_bucket_name):
     blob.cache_control = "public, max-age=300"
     blob.upload_from_string(json.dumps(summary), content_type="application/json")
     print(f"Rebuilt {summary_bucket.name}/{SUMMARY_OBJECT}: "
-          f"{summary['window_periods']} periods, total_minutes {summary['total_minutes']}")
+          f"{summary['window_periods']} periods, total_hours {summary['total_hours']:,.0f} "
+          f"(passenger {summary['passenger_hours']:,.0f} / freight {summary['freight_hours']:,.0f})")
     return summary
 
 

@@ -287,10 +287,23 @@
       max-height: 0; opacity: 0; text-align: left;
       transition: max-height 0.5s ease, opacity 0.4s ease, margin 0.4s ease;
     }
-    .limitations.is-open { max-height: 1600px; opacity: 1; margin-top: 1.4rem; }
+    .limitations.is-open { max-height: 4200px; opacity: 1; margin-top: 1.4rem; }
     .limitations p { font-size: 13px; color: var(--muted); line-height: 1.6; margin: 0 0 0.8rem; }
-    .limitations ul { margin: 0 0 1rem; padding-left: 1.1rem; }
+    .limitations h3 {
+      font-size: 11px; font-weight: 600; letter-spacing: 0.09em; text-transform: uppercase;
+      color: var(--faint); margin: 1.6rem 0 0.7rem;
+    }
+    .limitations h3:first-of-type { margin-top: 1.1rem; }
+    .limitations ul, .limitations ol { margin: 0 0 1rem; padding-left: 1.15rem; }
+    .limitations ol { display: grid; gap: 0.55rem; }
     .limitations li { font-size: 13px; color: var(--muted); line-height: 1.55; margin: 0 0 0.55rem; }
+    .limitations ol li { margin: 0; }
+    .limitations ol li ul { margin: 0.45rem 0 0; padding-left: 1.05rem; list-style: none; }
+    .limitations ol li ul li { position: relative; padding-left: 0.9rem; }
+    .limitations ol li ul li::before {
+      content: ""; position: absolute; left: 0; top: 0.6em;
+      width: 4px; height: 4px; border-radius: 50%; background: var(--turquoise); opacity: 0.7;
+    }
     .limitations a { color: var(--turquoise); }
 
     footer { margin-top: 3.4rem; font-size: 12px; color: var(--faint); line-height: 1.6; }
@@ -368,17 +381,33 @@
       </div>
 
       <div class="lim-wrap reveal">
-        <button class="lim-toggle" id="lim-toggle" aria-expanded="false" aria-controls="limitations">limitations&#42;</button>
+        <button class="lim-toggle" id="lim-toggle" aria-expanded="false" aria-controls="limitations">limitations &amp; methodology&#42;</button>
         <div class="limitations" id="limitations" aria-hidden="true">
-          <p>This figure is a deliberately simple estimate, meant to convey scale rather than a precise count. The main simplifications:</p>
+          <p>This is a deliberately simple estimate, meant to convey scale rather than a precise count. Here's exactly how it's built - and where it's rough.</p>
+
+          <h3>How the figure is built</h3>
+          <ol>
+            <li><strong>The source data.</strong> Every attributed delay and cancellation on Britain's mainline railway, from Network Rail's <a href="https://raildata.org.uk/dashboard/dataProduct/P-b5f4216b-4de5-412f-9c9a-d14c604a6b9e/overview" target="_blank" rel="noopener">Historic Delay Attribution dataset</a>. Each row records the minutes lost, the train operator, and the cause (along with other info).</li>
+            <li><strong>Minutes lost per train.</strong> For every row, the delay and cancellation minutes attributed to it are added up. These are <em>train</em> minutes - the time the service itself ran late - and are summed separately for each operator.</li>
+            <li><strong>Turning train-minutes into human-hours.</strong> A late train costs time to everyone on board, so each train-minute is multiplied by an estimate of the people/passengers affected, then divided by 60 to convert to hours. The multiplier depends on the type of train:
+              <ul>
+                <li><strong>Passenger trains</strong> use that operator's <em>average passengers per train</em>, worked out from the regulator's (ORR) <a href="https://dataportal.orr.gov.uk/statistics/usage/passenger-rail-usage/" target="_blank" rel="noopener">published passenger-kilometres &divide; train-kilometres</a>. This varies a lot by operator - the national average is about <span id="lim-load">126</span>, ranging from roughly 50 on quieter regional services to over 250 on the busiest intercity routes.</li>
+                <li><strong>Freight &amp; engineering trains</strong> carry no passengers, so instead their delay is converted into <em>equivalent</em> passenger-hours using the Department for Transport's TAG value-of-time guidance - currently about <span id="lim-freq">15</span> equivalent passengers per train. This keeps the real downstream cost of late freight (to the businesses that rely on it) in the total without treating a freight train like a full passenger service.</li>
+              </ul>
+              Because both are expressed in the same unit (equivalent person-hours), they add together into the single headline figure.</li>
+            <li><strong>Grouping by cause.</strong> Each delay's incident-reason code is mapped to a category using Network Rail's official glossary, giving the top-10 breakdown.</li>
+            <li><strong>Time window.</strong> The headline covers a rolling ~12 month period. The toggle switch above re-scopes everything to all time, summing every period on record - currently <span id="lim-first">&hellip;</span> to <span id="lim-last">&hellip;</span>.</li>
+          </ol>
+
+          <h3>Where it's rough</h3>
           <ul>
-            <li><strong>Flat passengers-per-train assumption.</strong> Every delayed or cancelled train minute is multiplied by the same assumed number of people on board (currently <span id="lim-ppt">100</span>). Real loadings vary enormously - a packed commuter service vs. a near-empty off-peak or freight train - so this over-counts some trains and under-counts others.</li>
-            <li><strong>Freight and empty stock are included.</strong> The data doesn't distinguish passenger from freight or empty-stock movements, yet they're multiplied by the same passenger figure. I made the decision to leave freight-related trains in the dataset because, while it doesn't directly affect passengers, it still impacts downstream time loss for businesses dependant on freight services. Ultimately this translates into real human impact and wasted hours, so to exclude it would misrepresent the impact of train delays and cancellations on the wider ecosystem. However I'm open to improving the methodology used here, perhaps by using a more grounded human-hour impact multiplier for freight, or by other means. Please get in touch if you have an idea!</li>
-            <li><strong>Cancellation minutes are an approximation.</strong> Cancellation time (NON_PFPI minutes) isn't lost passenger time in the same direct way that delay minutes (PFPI) are; combining them is a rough proxy.</li>
-            <li><strong>Only Network Rail attributed delays are counted.</strong> Delays are taken from Network Rail's Historic Delay Attribution dataset; some causes are recorded as uninvestigated or unattributed, and disruption outside this attribution process isn't captured.</li>
-            <li><strong>Knock-on time isn't fully captured.</strong> Missed connections, abandoned journeys and wider disruption to people's days fall outside these figures.</li>
-            <li><strong>The headline covers a rolling ~12 months</strong> (the latest 13 four-week railway periods). The all-time toggle instead sums every railway period on record - currently <span id="lim-first">…</span> to <span id="lim-last">…</span>.</li>
+            <li><strong>Derived passenger loadings are averages, not actual counts.</strong> Each operator's figure is an annual average. As a result, it doesn't reflect time of day, peak crowding, or direction of travel. A packed morning commuter train and a near-empty late-night one get the same multiplier, so individual trains are over or under-counted (though the mix of operators is properly reflected). This approach serves as a grounded guide, but isn't perfect - though I don't think it should be too far off.</li>
+            <li><strong>The freight equivalent is the weakest assumption.</strong> Valuing a freight train's delay as a passenger-equivalent currently relies on national value-of-time figures rather than the specific cargo, so freight's share is a grounded approximation. If you can think of a better approach, please get in touch!</li>
+            <li><strong>Cancellations are treated like delays.</strong> Cancellation minutes are folded in alongside delay minutes; in reality a cancellation affects a passenger differently (waiting for the next service, missing connections downstream, or abandoning the trip entirely), so combining them is a rough proxy.</li>
+            <li><strong>Only attributed delays are counted.</strong> The dataset captures delays Network Rail has logged and attributed; some are recorded as uninvestigated or unattributed, and disruption outside that process isn't included.</li>
+            <li><strong>Knock-on impact isn't fully captured.</strong> Missed connections, abandoned journeys and the wider knock-on to people's days fall outside these figures.</li>
           </ul>
+
           <p>Got an idea on how I can improve the methodology? I'd love to hear it -&gt; <a href="mailto:barnee@reallygood.engineering?subject=Hours%20lost%20to%20train%20delays%20-%20methodology">barnee@reallygood.engineering</a></p>
         </div>
       </div>
@@ -398,9 +427,11 @@
     const DATA_URL = (window.RAILDATA_SUMMARY_URL)
       || "https://storage.googleapis.com/ukraildelaytracker-web/summary.json";
 
-    // Fallback only — the real multiplier always comes from summary.json
-    // (people_per_train), so the limitations figure stays in sync automatically.
-    const PPT_FALLBACK = 100;
+    // Fallbacks only — the real figures (hours, and the methodology numbers shown
+    // in the limitations note) always come from summary.json, so the page stays in
+    // sync when the conversion params change.
+    const LOAD_FALLBACK = 126;     // national avg passengers/train
+    const FREIGHT_EQUIV_FALLBACK = 15;
 
     const nf = new Intl.NumberFormat('en-GB');
     const fmtDate = iso => {
@@ -408,7 +439,6 @@
       const d = new Date(iso + 'T00:00:00');
       return isNaN(d) ? null : d.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
     };
-    const minutesToHours = (mins, ppt) => Math.round(mins * ppt / 60);
     const HOURS_PER_YEAR = 24 * 365;
 
     // An underlined glossary term with a hover/focus tooltip (reuses .term styles).
@@ -511,10 +541,9 @@
 
     function renderHeadline() {
       const data = summaryData;
-      const ppt = data.people_per_train || PPT_FALLBACK;
       const fig = activeFigures(data);
 
-      const totalHours = minutesToHours(fig.total_minutes, ppt);
+      const totalHours = Math.round(fig.total_hours || 0);
       animateNumber(document.getElementById('number'), totalHours);
 
       const years = totalHours / HOURS_PER_YEAR;
@@ -547,11 +576,10 @@
 
     function renderDetails() {
       const data = summaryData;
-      const ppt = data.people_per_train || PPT_FALLBACK;
       const fig = activeFigures(data);   // breakdown follows the all-time toggle
 
-      const delayH = minutesToHours(fig.delay_minutes, ppt);
-      const cancelH = minutesToHours(fig.cancellation_minutes, ppt);
+      const delayH = Math.round(fig.delay_hours || 0);
+      const cancelH = Math.round(fig.cancellation_hours || 0);
       detailTargets.delay = delayH;
       detailTargets.cancel = cancelH;
       document.getElementById('delay-hours').textContent = nf.format(delayH);
@@ -562,7 +590,7 @@
       detailTargets.reasons = [];
       (fig.top_categories || []).forEach((c, i) => {
         const li = document.createElement('li');
-        const hrs = minutesToHours(c.minutes, ppt);
+        const hrs = Math.round(c.hours || 0);
         // Use plain hyphens in the displayed copy (no em-dashes).
         const desc = (CATEGORY_DESCRIPTIONS[c.name] || '').replace(/—/g, '-');
         li.innerHTML = `<span class="rank">${i + 1}</span>`
@@ -579,7 +607,7 @@
         detailTargets.reasons.push({ el: li.querySelector('.rnum'), hrs });
       });
 
-      renderChart(fig, ppt);
+      renderChart(fig);
     }
 
     // Replay the count-up on the detail numbers, mirroring the grand total.
@@ -591,12 +619,12 @@
 
     // Month-by-month (per railway period) line of human-hours lost, with a
     // least-squares trend line. Redraws whenever the scope toggle changes.
-    function renderChart(fig, ppt) {
+    function renderChart(fig) {
       const host = document.getElementById('chart');
-      const series = (fig.series || []).filter(p => p.total_minutes != null);
+      const series = (fig.series || []).filter(p => p.total_hours != null);
       if (series.length < 2) { host.innerHTML = ''; return; }
 
-      const hours = series.map(p => p.total_minutes * ppt / 60);
+      const hours = series.map(p => p.total_hours);
       const labels = series.map(p => {
         const d = p.end ? new Date(p.end + 'T00:00:00') : null;
         return (d && !isNaN(d)) ? d.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }) : '';
@@ -695,8 +723,10 @@
 
     function render(data) {
       summaryData = data;
-      const ppt = data.people_per_train || PPT_FALLBACK;
-      document.getElementById('lim-ppt').textContent = nf.format(ppt);
+      document.getElementById('lim-load').textContent =
+        nf.format(data.default_passenger_load || LOAD_FALLBACK);
+      document.getElementById('lim-freq').textContent =
+        nf.format(data.freight_equiv_passengers || FREIGHT_EQUIV_FALLBACK);
 
       // Dates describing how far back the dataset actually goes.
       const at = data.all_time || {};

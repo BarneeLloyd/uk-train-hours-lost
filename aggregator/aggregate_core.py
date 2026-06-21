@@ -1,29 +1,55 @@
 """Core aggregation logic — pure, no cloud dependencies, easy to unit-test.
 
-Given the rows of one Transparency CSV (one railway period) and the
-INCIDENT_REASON -> category map, produce a tiny summary:
+Given the rows of one Transparency CSV (one railway period), the
+INCIDENT_REASON -> category map and the TOC_CODE -> {name, class} operator map,
+produce a tiny per-period summary that keeps minutes broken down *by operator*
+so the hours conversion can weight each operator individually:
 
     {
       "period": "2024/25_P11",
       "rows": 455580,
-      "delay_minutes": 2542929,          # sum of PFPI_MINUTES
+      "delay_minutes": 2542929,          # sum of PFPI_MINUTES (all operators)
       "cancellation_minutes": 1211065,   # sum of NON_PFPI_MINUTES
-      "categories": {
-         "Train operations": {"delay": 1144112, "cancellation": 1480}, ...
+      "operators": {                     # raw minutes per TOC_CODE
+         "HF": {"delay": 86011, "cancellation": 1200}, ...
       },
-      "unmatched_codes": {"ZZ": 4}       # codes not in the glossary (should be empty)
+      "categories": {                    # minutes split passenger/freight
+         "Train operations": {"pass_delay": .., "pass_cancel": .., "frt_delay": .., "frt_cancel": ..}
+      },
+      "unmatched_codes": {"ZZ": 4}       # incident codes not in the glossary
     }
 
-We store raw MINUTES (never the x150 / hours result) so the people-per-train
-multiplier and the rolling window stay configurable at read time.
+We store raw MINUTES (never the hours result) so the conversion parameters
+(per-operator loads, freight equivalent, rolling window) stay configurable at
+summary-build time.
+
+## The hours model
+
+Every category of delay is funnelled through one conversion into a single
+"hours of human time lost" figure:
+
+    passenger train:  delay_minutes / 60  x  pax_per_train[operator]
+    freight train:    delay_minutes / 60  x  freight_equiv_passengers
+
+* Passenger loads are operator-specific (ORR passenger-km / train-km), defaulting
+  to a national average when an operator isn't in the table.
+* Freight / engineering / light-loco trains carry no passengers, so their delay
+  is bridged to equivalent passenger-hours via the DfT TAG value-of-time ratio,
+  expressed as a single `freight_equiv_passengers` constant.
+
+The two are commensurable (both "equivalent person-hours"), so they sum to one
+total. See aggregator/conversion_params.json for the numbers and provenance.
 """
 import re
 from collections import Counter, defaultdict
 
 # Default rolling window: 13 four-week railway periods ~= 12 months.
 DEFAULT_WINDOW = 13
-DEFAULT_PEOPLE_PER_TRAIN = 100
 DEFAULT_TOP_N = 10
+
+# Conversion fallbacks, used only if conversion_params.json doesn't supply them.
+DEFAULT_PASSENGER_LOAD = 126   # ORR national average passengers per train
+DEFAULT_FREIGHT_EQUIV = 15     # equivalent passengers per freight train (TAG VoT bridge)
 
 _PERIOD_RE = re.compile(r"^(\d{4})/(\d{2})_P(\d{1,2})$")
 
@@ -50,13 +76,58 @@ def _to_minutes(value):
         return 0.0
 
 
-def aggregate_rows(dict_rows, reason_map):
-    """dict_rows: iterable of dict-like rows (e.g. from csv.DictReader)."""
+# --- the conversion: minutes -> equivalent person-hours -----------------------
+
+def operator_class_map(operator_map):
+    """operator_map.json ({code: {name, class}}) -> {code: class}."""
+    return {k: v.get("class", "passenger") for k, v in (operator_map or {}).items()}
+
+
+def make_conversion(conversion_params, operator_map):
+    """Assemble the conversion dict build_summary expects from the two bundled
+    lookups (conversion_params.json + operator_map.json)."""
+    conversion_params = conversion_params or {}
+    return {
+        "default_passenger_load": conversion_params.get(
+            "default_passenger_load", DEFAULT_PASSENGER_LOAD),
+        "freight_equiv_passengers": conversion_params.get(
+            "freight_equiv_passengers", DEFAULT_FREIGHT_EQUIV),
+        "operator_load": conversion_params.get("operator_load", {}),
+        "operator_load_year": conversion_params.get("operator_load_year"),
+        "operator_class": operator_class_map(operator_map),
+    }
+
+
+def load_for(code, conversion):
+    """Equivalent persons per train for an operator code. Per-operator passenger
+    load if known, else freight equivalent for freight operators, else the
+    national passenger average."""
+    override = conversion.get("operator_load", {}).get(code)
+    if override is not None:
+        return override
+    if is_freight(code, conversion):
+        return conversion.get("freight_equiv_passengers", DEFAULT_FREIGHT_EQUIV)
+    return conversion.get("default_passenger_load", DEFAULT_PASSENGER_LOAD)
+
+
+def is_freight(code, conversion):
+    return conversion.get("operator_class", {}).get(code) == "freight"
+
+
+def aggregate_rows(dict_rows, reason_map, operator_class=None):
+    """dict_rows: iterable of dict-like rows (e.g. from csv.DictReader).
+
+    operator_class: TOC_CODE -> "passenger"|"freight" (from operator_map.json).
+    Unknown / blank operators are treated as passenger."""
+    operator_class = operator_class or {}
     periods = Counter()
     rows = 0
     delay_total = 0.0
     cancel_total = 0.0
-    cats = defaultdict(lambda: {"delay": 0.0, "cancellation": 0.0})
+    operators = defaultdict(lambda: {"delay": 0.0, "cancellation": 0.0})
+    cats = defaultdict(lambda: {
+        "pass_delay": 0.0, "pass_cancel": 0.0, "frt_delay": 0.0, "frt_cancel": 0.0,
+    })
     unmatched = Counter()
 
     for row in dict_rows:
@@ -70,18 +141,28 @@ def aggregate_rows(dict_rows, reason_map):
         delay_total += pfpi
         cancel_total += non_pfpi
 
-        code = (row.get("INCIDENT_REASON") or "").strip()
-        category = reason_map.get(code)
+        code = (row.get("TOC_CODE") or "").strip()
+        op = operators[code]
+        op["delay"] += pfpi
+        op["cancellation"] += non_pfpi
+        freight = operator_class.get(code, "passenger") == "freight"
+
+        rc = (row.get("INCIDENT_REASON") or "").strip()
+        category = reason_map.get(rc)
         if category is None:
-            if code:
-                unmatched[code] += 1
+            if rc:
+                unmatched[rc] += 1
             category = "Unattributed / unknown"
         elif category == "":
             category = "Unattributed / unknown"
 
         bucket = cats[category]
-        bucket["delay"] += pfpi
-        bucket["cancellation"] += non_pfpi
+        if freight:
+            bucket["frt_delay"] += pfpi
+            bucket["frt_cancel"] += non_pfpi
+        else:
+            bucket["pass_delay"] += pfpi
+            bucket["pass_cancel"] += non_pfpi
 
     period = periods.most_common(1)[0][0] if periods else None
 
@@ -90,9 +171,12 @@ def aggregate_rows(dict_rows, reason_map):
         "rows": rows,
         "delay_minutes": round(delay_total, 2),
         "cancellation_minutes": round(cancel_total, 2),
-        "categories": {
+        "operators": {
             k: {"delay": round(v["delay"], 2), "cancellation": round(v["cancellation"], 2)}
-            for k, v in cats.items()
+            for k, v in operators.items()
+        },
+        "categories": {
+            k: {kk: round(vv, 2) for kk, vv in v.items()} for k, v in cats.items()
         },
         "unmatched_codes": dict(unmatched),
     }
@@ -102,16 +186,21 @@ def build_summary(
     period_summaries,
     period_end_dates=None,
     window=DEFAULT_WINDOW,
-    people_per_train=DEFAULT_PEOPLE_PER_TRAIN,
+    conversion=None,
     top_n=DEFAULT_TOP_N,
     generated_at=None,
 ):
-    """Compile the rolling-window summary the webpage reads.
+    """Compile the rolling-window summary the webpage reads, in HOURS.
 
-    period_summaries: iterable of per-period dicts from aggregate_rows().
-    Returns minutes (not hours); the frontend applies people_per_train / 60.
+    conversion: {
+        "default_passenger_load": int,
+        "freight_equiv_passengers": int,
+        "operator_load": {TOC_CODE: pax_per_train},
+        "operator_class": {TOC_CODE: "passenger"|"freight"},
+    }
     """
     period_end_dates = period_end_dates or {}
+    conversion = conversion or {}
 
     # De-dupe by period (latest wins) and order chronologically.
     by_period = {}
@@ -124,48 +213,84 @@ def build_summary(
     def end_of(code):
         return period_end_dates.get(code)
 
+    freight_equiv = conversion.get("freight_equiv_passengers", DEFAULT_FREIGHT_EQUIV)
+
     def aggregate(period_list):
-        """Roll up a list of per-period summaries into totals, a top-N category
-        ranking, and a per-period time series (for the trend chart)."""
-        delay = 0
-        cancel = 0
-        cat_minutes = defaultdict(lambda: {"delay": 0, "cancellation": 0})
+        """Roll up periods into total hours, a passenger/freight split, a top-N
+        category ranking (in hours) and a per-period series for the chart."""
+        delay_min = cancel_min = 0.0
+        pass_min = pass_hours = 0.0
+        frt_min = frt_hours = 0.0
+        delay_hours = cancel_hours = 0.0
+        cat = defaultdict(lambda: {
+            "pass_delay": 0.0, "pass_cancel": 0.0, "frt_delay": 0.0, "frt_cancel": 0.0,
+        })
         series = []
+
         for s in period_list:
-            d = s.get("delay_minutes", 0)
-            c = s.get("cancellation_minutes", 0)
-            delay += d
-            cancel += c
+            delay_min += s.get("delay_minutes", 0)
+            cancel_min += s.get("cancellation_minutes", 0)
+
+            p_delay_h = p_cancel_h = 0.0   # this period's hours (exact, per-operator)
+            for code, v in s.get("operators", {}).items():
+                load = load_for(code, conversion)
+                dh = v.get("delay", 0) * load / 60.0
+                ch = v.get("cancellation", 0) * load / 60.0
+                p_delay_h += dh
+                p_cancel_h += ch
+                if is_freight(code, conversion):
+                    frt_hours += dh + ch
+                    frt_min += v.get("delay", 0) + v.get("cancellation", 0)
+                else:
+                    pass_hours += dh + ch
+                    pass_min += v.get("delay", 0) + v.get("cancellation", 0)
+
+            delay_hours += p_delay_h
+            cancel_hours += p_cancel_h
+
             for name, v in s.get("categories", {}).items():
-                cat_minutes[name]["delay"] += v.get("delay", 0)
-                cat_minutes[name]["cancellation"] += v.get("cancellation", 0)
+                b = cat[name]
+                for kk in b:
+                    b[kk] += v.get(kk, 0)
+
             series.append({
                 "period": s["period"],
                 "end": end_of(s["period"]),
-                "delay_minutes": round(d, 2),
-                "cancellation_minutes": round(c, 2),
-                "total_minutes": round(d + c, 2),
+                "delay_hours": round(p_delay_h, 1),
+                "cancellation_hours": round(p_cancel_h, 1),
+                "total_hours": round(p_delay_h + p_cancel_h, 1),
             })
 
-        top = sorted(
-            cat_minutes.items(),
-            key=lambda kv: kv[1]["delay"] + kv[1]["cancellation"],
-            reverse=True,
-        )[:top_n]
-        top_categories = [
-            {
+        # Category hours: exact per-operator weighting isn't stored per category,
+        # so passenger-attributed category minutes use the window's *blended*
+        # passenger load (chosen so the categories reconcile with passenger_hours),
+        # and freight-attributed minutes use the freight equivalent.
+        blended_pass_load = (
+            pass_hours * 60.0 / pass_min if pass_min > 0
+            else conversion.get("default_passenger_load", DEFAULT_PASSENGER_LOAD)
+        )
+        cat_list = []
+        for name, b in cat.items():
+            cdh = (b["pass_delay"] * blended_pass_load + b["frt_delay"] * freight_equiv) / 60.0
+            cch = (b["pass_cancel"] * blended_pass_load + b["frt_cancel"] * freight_equiv) / 60.0
+            cat_list.append({
                 "name": name,
-                "delay_minutes": round(v["delay"], 2),
-                "cancellation_minutes": round(v["cancellation"], 2),
-                "minutes": round(v["delay"] + v["cancellation"], 2),
-            }
-            for name, v in top
-        ]
+                "delay_hours": round(cdh, 1),
+                "cancellation_hours": round(cch, 1),
+                "hours": round(cdh + cch, 1),
+            })
+        cat_list.sort(key=lambda x: x["hours"], reverse=True)
+
         return {
-            "delay_minutes": round(delay, 2),
-            "cancellation_minutes": round(cancel, 2),
-            "total_minutes": round(delay + cancel, 2),
-            "top_categories": top_categories,
+            "delay_hours": round(delay_hours, 1),
+            "cancellation_hours": round(cancel_hours, 1),
+            "total_hours": round(delay_hours + cancel_hours, 1),
+            "passenger_hours": round(pass_hours, 1),
+            "freight_hours": round(frt_hours, 1),
+            "delay_minutes": round(delay_min, 2),
+            "cancellation_minutes": round(cancel_min, 2),
+            "total_minutes": round(delay_min + cancel_min, 2),
+            "top_categories": cat_list[:top_n],
             "series": series,
         }
 
@@ -174,8 +299,6 @@ def build_summary(
     win_codes = [s["period"] for s in selected]
     all_codes = [s["period"] for s in ordered]
 
-    # All-time block (ignores the rolling window) powering the "all historic
-    # hours" toggle — now carries its own breakdown and series too.
     all_time = {
         "window_periods": len(ordered),
         "period_first": all_codes[0] if all_codes else None,
@@ -186,9 +309,12 @@ def build_summary(
     }
 
     return {
-        "schema_version": 2,
+        "schema_version": 3,
         "generated_at": generated_at,
-        "people_per_train": people_per_train,
+        # Methodology metadata for the page's limitations note.
+        "default_passenger_load": conversion.get("default_passenger_load", DEFAULT_PASSENGER_LOAD),
+        "freight_equiv_passengers": freight_equiv,
+        "operator_load_year": conversion.get("operator_load_year"),
         "window_periods": len(selected),
         "period_first": win_codes[0] if win_codes else None,
         "period_last": win_codes[-1] if win_codes else None,

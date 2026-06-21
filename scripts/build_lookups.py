@@ -3,11 +3,13 @@
 Outputs (written into aggregator/ so they get bundled with the function):
   - incident_reason_map.json : INCIDENT_REASON code -> Incident Category Description
   - period_end_dates.json    : "YYYY/YY_Pn" -> ISO end date of that railway period
+  - operator_map.json        : TOC_CODE -> {name, class}  (class = passenger|freight)
 
 Run whenever the glossary changes (rarely):
     python scripts/build_lookups.py path/to/Glossary.xlsx
 """
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -15,6 +17,49 @@ import openpyxl
 
 ROOT = Path(__file__).resolve().parent.parent
 OUT_DIR = ROOT / "aggregator"
+
+# Operators with no fare-paying passengers: freight, infrastructure, engineering,
+# light-loco and charter-haulage companies. Their delay is bridged to "equivalent
+# passenger-hours" via the TAG value-of-time ratio (see conversion_params.json)
+# rather than multiplied by a passenger load. Matched against the glossary name.
+_FREIGHT_KW = re.compile(
+    r"freight|cargo|dbc|schenker|railfreight|freightliner|\bdrs\b|colas|loram|infra|"
+    r"harsco|rail operations|gb rail eng|wcr|swietelsky|babcock|amey|volker|carillion|"
+    r"balfour|network rail|serco rail ops|legge|seco|jsd|premet|railadventure|loco|"
+    r"locomotive|victa|fastline|hanson|dcr|europorte|varamis|slc|railtest|rits|wrong tsc",
+    re.I,
+)
+# Non-mainline operators that DO carry passengers (heritage / metro / charter /
+# international) -> keep on the passenger side even if a freight keyword matches.
+_PASSENGER_KW = re.compile(
+    r"charter|vsoe|orient|pullman|vintage|steam|nymr|swanage|supertram|nexus|"
+    r"eurostar|lul|underground",
+    re.I,
+)
+
+
+def classify_operator(name):
+    """passenger | freight, from the operator's glossary name."""
+    name = (name or "").strip()
+    if _PASSENGER_KW.search(name):
+        return "passenger"
+    if _FREIGHT_KW.search(name):
+        return "freight"
+    return "passenger"
+
+
+def build_operator_map(wb):
+    """'Operator Name' sheet: TOC code -> {name, class}."""
+    ws = wb["Operator Name"]
+    rows = list(ws.iter_rows(values_only=True))[1:]  # skip header
+    out = {}
+    for r in rows:
+        code = r[0]
+        if not code:
+            continue
+        name = str(r[1]).strip() if len(r) > 1 and r[1] else ""
+        out[str(code).strip()] = {"name": name, "class": classify_operator(name)}
+    return out
 
 
 def build_reason_map(wb):
@@ -90,6 +135,7 @@ def main():
 
     reason_map = build_reason_map(wb)
     period_dates = build_period_end_dates(wb)
+    operator_map = build_operator_map(wb)
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     (OUT_DIR / "incident_reason_map.json").write_text(
@@ -98,11 +144,18 @@ def main():
     (OUT_DIR / "period_end_dates.json").write_text(
         json.dumps(period_dates, indent=2, sort_keys=True)
     )
+    (OUT_DIR / "operator_map.json").write_text(
+        json.dumps(operator_map, indent=2, sort_keys=True)
+    )
+    n_frt = sum(1 for v in operator_map.values() if v["class"] == "freight")
     print(f"incident_reason_map.json : {len(reason_map)} codes")
     print(f"period_end_dates.json    : {len(period_dates)} periods")
+    print(f"operator_map.json        : {len(operator_map)} operators "
+          f"({n_frt} freight / {len(operator_map) - n_frt} passenger)")
     # quick sanity
     print("  sample:", "TN ->", reason_map.get("TN"),
-          "| 2024/25_P11 end ->", period_dates.get("2024/25_P11"))
+          "| 2024/25_P11 end ->", period_dates.get("2024/25_P11"),
+          "| WA ->", operator_map.get("WA"))
 
 
 if __name__ == "__main__":
